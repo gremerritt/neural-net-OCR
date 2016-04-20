@@ -10,6 +10,7 @@ struct neural_net {
   int number_of_nodes_in_hidden_layers;
   int number_of_inputs;
   int number_of_outputs;
+  int batch_size;
   nn_type eta;   // eta is the learning rate
 
   // Each entry in 'biases' is a pointer to an array -
@@ -52,6 +53,7 @@ void create_neural_net(struct neural_net *nn,
                        int number_of_nodes_in_hidden_layers,
                        int number_of_inputs,
                        int number_of_outputs,
+                       int batch_size,
                        nn_type eta);
 
 void feed_forward(struct neural_net *nn,

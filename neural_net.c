@@ -14,6 +14,7 @@ void create_neural_net(struct neural_net *nn,
                        int number_of_nodes_in_hidden_layers,
                        int number_of_inputs,
                        int number_of_outputs,
+                       int batch_size,
                        nn_type eta)
 {
   int i, j;
@@ -24,6 +25,7 @@ void create_neural_net(struct neural_net *nn,
   (*nn).number_of_nodes_in_hidden_layers = number_of_nodes_in_hidden_layers;
   (*nn).number_of_inputs                 = number_of_inputs;
   (*nn).number_of_outputs                = number_of_outputs;
+  (*nn).batch_size                       = batch_size;
   (*nn).eta                              = eta;
 
   //---------------------------------------------------------------------------

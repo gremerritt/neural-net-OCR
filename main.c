@@ -8,9 +8,10 @@
 
 #define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 30
+#define NUM_NODES_IN_HIDDEN_LAYERS 200
 #define NUM_HIDDEN_LAYERS 1
 #define LEARNING_RATE 3.0
+#define BATCH_SIZE 10
 #define EPOCHS 3
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
@@ -76,6 +77,7 @@ int main(int argc, char **argv) {
 	int number_of_nodes_in_hidden_layers = NUM_NODES_IN_HIDDEN_LAYERS;
 	int number_of_inputs                 = DIM*DIM;
 	int number_of_outputs                = NUM_OUTPUTS;
+	int batch_size                       = BATCH_SIZE;
 	nn_type learning_rate                = LEARNING_RATE;
 
 	printf("\nInitializing neural net:");
@@ -84,6 +86,7 @@ int main(int argc, char **argv) {
 		                     number_of_nodes_in_hidden_layers,
 												 number_of_inputs,
 												 number_of_outputs,
+												 batch_size,
 											   learning_rate);
 
 	printf("\n  Total Layers:           %i", nn.number_of_hidden_layers+2);
