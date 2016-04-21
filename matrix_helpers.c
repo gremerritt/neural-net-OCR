@@ -44,25 +44,32 @@ void sigmoidify(nn_type *activation,
 
 void delta_output_layer(nn_type *delta,
                         nn_type *activation,
-                        nn_type *z_vector,
-                        int target_value,
-                        int dim)
+                        nn_type *z_matrix,
+                        int *target_value,
+                        int outputs,
+                        int batch_size)
 {
-  int i;
-  for (i=0; i<dim; i++) {
-    delta[i] = (activation[i] - ((i == target_value) ? 1.0 : 0.0)) * sigmoidPrime(z_vector[i]);
+  int row, col;
+  for (col=0; col<batch_size; col++) {
+    int target = target_value[col];
+    for (row=0; row<outputs; row++) {
+      int index = (row*batch_size) + col;
+      delta[index] = (activation[index] - ((row == target) ? 1.0 : 0.0)) * sigmoidPrime(z_matrix[index]);
+    }
   }
 }
 
 void delta_hidden_layers(nn_type *delta,
                          nn_type *weight_downstream,
                          nn_type *delta_downstream,
-                         nn_type *z_vector,
+                         nn_type *z_matrix,
                          int weight_rows,
-                         int weight_cols)
+                         int weight_cols,
+                         int batch_size)
 {
-  int row, col;
+  int weight_row, weight_col, delta_col;
 
+  // int row, col;
   // printf("\n\nWeight downstream:\n");
   // printf("[");
   // for (row=0; row<weight_rows; row++) {
@@ -71,46 +78,36 @@ void delta_hidden_layers(nn_type *delta,
   //   if (row==weight_rows-1) printf("]");
   //   else printf(";\n");
   // }
-  //
+  // //
   // printf("\n\nDelta downstream:\n");
   // printf("[");
   // for (row=0; row<weight_rows; row++) {
-  //   if (row==weight_rows-1) printf("%f]", delta_downstream[row]);
-  //   else printf("%f;\n", delta_downstream[row]);
-  // }
-  //
-  // printf("\n\nZ vector:\n");
-  // printf("[");
-  // for (col=0; col<weight_cols; col++) {
-  //   if (col==weight_cols-1) printf("%f]", z_vector[col]);
-  //   else printf("%f;\n", z_vector[col]);
-  // }
-  //
-  // printf("\n\nZ vector - sigmoid prime:\n");
-  // printf("[");
-  // for (col=0; col<weight_cols; col++) {
-  //   if (col==weight_cols-1) printf("%f]", sigmoidPrime(z_vector[col]));
-  //   else printf("%f;\n", sigmoidPrime(z_vector[col]));
+  //   for (col=0; col<batch_size; col++)
+  //     printf("%f ", delta_downstream[(row*batch_size) + col]);
+  //   if (row==weight_rows-1) printf("]");
+  //   else printf(";\n");
   // }
 
-  // We do the transpose of the 'weight' matrix by just
-  // handling the indices differently.
-  for (col=0; col<weight_cols; col++) {
-    nn_type accum = 0.0;
-    for (row=0; row<weight_rows; row++) {
-      accum += weight_downstream[(weight_cols*row) + col] * delta_downstream[row];
+  for (delta_col=0; delta_col<batch_size; delta_col++) {
+    for (weight_col=0; weight_col<weight_cols; weight_col++) {
+      nn_type accum = 0.0;
+      for (weight_row=0; weight_row<weight_rows; weight_row++) {
+        accum += weight_downstream[(weight_cols*weight_row) + weight_col] *
+                 delta_downstream[(weight_row*batch_size) + delta_col];
+      }
+      accum *= sigmoidPrime(z_matrix[(weight_col*batch_size)+delta_col]);
+      delta[(weight_col*batch_size)+delta_col] = accum;
     }
-    accum *= sigmoidPrime(z_vector[col]);
-    delta[col] = accum;
   }
 
   // printf("\n\nDelta:\n");
   // printf("[");
-  // for (col=0; col<weight_cols; col++) {
-  //   if (col==weight_cols-1) printf("%f]", delta[col]);
-  //   else printf("%f;\n", delta[col]);
+  // for (row=0; row<weight_cols; row++) {
+  //   for (col=0; col<batch_size; col++)
+  //     printf("%f ", delta[(row*batch_size) + col]);
+  //   if (row==weight_rows-1) printf("]");
+  //   else printf(";\n");
   // }
-  // printf("\n---\n");
 }
 
 void adjust_weight(nn_type *activation,

@@ -38,14 +38,14 @@ void create_neural_net(struct neural_net *nn,
   // this loop does the hidden layers
   for (i=0; i<number_of_hidden_layers; i++) {
     (*nn).bias[i]       = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
-    (*nn).delta[i]      = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
+    (*nn).delta[i]      = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
     (*nn).z_matrix[i]   = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
     (*nn).activation[i] = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
     for (j=0; j<number_of_nodes_in_hidden_layers; j++) {
       (*nn).bias[i][j]       = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-      (*nn).delta[i][j]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
     }
     for (j=0; j<number_of_nodes_in_hidden_layers * batch_size; j++) {
+      (*nn).delta[i][j]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
       (*nn).z_matrix[i][j]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
       (*nn).activation[i][j] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
     }
@@ -53,14 +53,14 @@ void create_neural_net(struct neural_net *nn,
   //
   // this does the output layer
   (*nn).bias[number_of_hidden_layers]       = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
-  (*nn).delta[number_of_hidden_layers]      = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
+  (*nn).delta[number_of_hidden_layers]      = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
   (*nn).z_matrix[number_of_hidden_layers]   = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
   (*nn).activation[number_of_hidden_layers] = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
   for (i=0; i<number_of_outputs; i++) {
     (*nn).bias[number_of_hidden_layers][i]       = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    (*nn).delta[number_of_hidden_layers][i]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
   }
   for (i=0; i<number_of_outputs * batch_size; i++) {
+    (*nn).delta[number_of_hidden_layers][i]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
     (*nn).z_matrix[number_of_hidden_layers][i]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
     (*nn).activation[number_of_hidden_layers][i] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
   }
@@ -129,7 +129,7 @@ void destroy_nn(struct neural_net *nn)
 void feed_forward(struct neural_net *nn,
                   nn_type *result,
                   nn_type *activation_initial,
-                  int target_value,
+                  int *target_value,
                   char training,
                   int *count)
 {
@@ -216,14 +216,14 @@ void feed_forward(struct neural_net *nn,
           max_index = j;
         }
       }
-      if (max_index == target_value) (*count)++;
+      if (max_index == target_value[i]) (*count)++;
     }
   }
 }
 
 void backpropagate(struct neural_net *nn,
                    nn_type *activation_initial,
-                   int target_value)
+                   int *target_value)
 {
   // printf("backpropagating with %i\n", target_value);
   int i;
@@ -231,6 +231,7 @@ void backpropagate(struct neural_net *nn,
   int number_of_nodes_in_hidden_layers = (*nn).number_of_nodes_in_hidden_layers;
   int number_of_inputs                 = (*nn).number_of_inputs;
   int number_of_outputs                = (*nn).number_of_outputs;
+  int batch_size                       = (*nn).batch_size;
   int eta                              = (*nn).eta;
 
   // find the delta value in the output layer
@@ -238,7 +239,8 @@ void backpropagate(struct neural_net *nn,
                      (*nn).activation[number_of_hidden_layers],
                      (*nn).z_matrix[number_of_hidden_layers],
                      target_value,
-                     number_of_outputs);
+                     number_of_outputs,
+                     batch_size);
 
   // backpropagate delta -> last hidden layer
   //  Note that row, col dimensions here are for the matrix W
@@ -249,7 +251,8 @@ void backpropagate(struct neural_net *nn,
                       (*nn).delta[number_of_hidden_layers],
                       (*nn).z_matrix[number_of_hidden_layers-1],
                       number_of_outputs,
-                      number_of_nodes_in_hidden_layers);
+                      number_of_nodes_in_hidden_layers,
+                      batch_size);
 
   // backpropagate delta -> hidden layers
   for (i=number_of_hidden_layers-2; i>=0; i--) {
@@ -258,7 +261,8 @@ void backpropagate(struct neural_net *nn,
                         (*nn).delta[i+1],
                         (*nn).z_matrix[i],
                         number_of_nodes_in_hidden_layers,
-                        number_of_nodes_in_hidden_layers);
+                        number_of_nodes_in_hidden_layers,
+                        batch_size);
   }
 
   // -----------------------------------------------------------------

@@ -102,14 +102,17 @@ int main(int argc, char **argv) {
 	int epoch;
 
 	nn_type A[DIM*DIM*BATCH_SIZE];
+	int labels[BATCH_SIZE];
 	for (i=0; i<DIM*DIM*BATCH_SIZE; i++) A[i] = (nn_type)(i+3) / (DIM*DIM*BATCH_SIZE+4);
+	for (i=0; i<BATCH_SIZE; i++) labels[i] = i;
 
 	// TRAINING
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
 		printf("  Epoch %i\n", epoch);
 		for (i=0; i<TRAINING_SAMPLES; i++) {
-			feed_forward(&nn, result, A, training_data[i].label, 1, &count);
+			// feed_forward(&nn, result, A, training_data[i].label, 1, &count);
+			feed_forward(&nn, result, A, labels, 1, &count);
 			// if (i%TRAINING_PRINT_RESULTS_EVERY == 0) {
 			// 	int row, col;
 			// 	printf("\n------------------\nlabel: %i\n", training_data[i].label);
@@ -122,7 +125,7 @@ int main(int argc, char **argv) {
 
 		printf("    Running tests...\n");
 		for (i=0; i<TEST_SAMPLES; i++) {
-			feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
+			// feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
 			// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
 			// 	int row, col;
 			// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
@@ -138,7 +141,7 @@ int main(int argc, char **argv) {
 
 	printf("\nRunning tests...\n");
 	for (i=0; i<TEST_SAMPLES; i++) {
-		feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
+		// feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
 		// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
 		// 	int row, col;
 		// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);

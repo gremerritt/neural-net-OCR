@@ -22,16 +22,18 @@ void sigmoidify(nn_type *activation,
 
 void delta_output_layer(nn_type *delta,
                         nn_type *activation,
-                        nn_type *z_vector,
-                        int target_value,
-                        int dim);
+                        nn_type *z_matrix,
+                        int *target_value,
+                        int outputs,
+                        int batch_size);
 
 void delta_hidden_layers(nn_type *delta,
                          nn_type *weight_downstream,
                          nn_type *delta_downstream,
-                         nn_type *z_vector,
+                         nn_type *z_matrix,
                          int weight_rows,
-                         int weight_cols);
+                         int weight_cols,
+                         batch_size);
 
 void adjust_weight(nn_type *activation_initial,
                    nn_type *weight,

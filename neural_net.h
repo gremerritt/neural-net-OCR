@@ -59,13 +59,13 @@ void create_neural_net(struct neural_net *nn,
 void feed_forward(struct neural_net *nn,
                   nn_type *result,
                   nn_type *activation_initial,
-                  int target_value,
+                  int *target_value,
                   char training,
                   int *count);
 
 void backpropagate(struct neural_net *nn,
                    nn_type *activation_initial,
-                   int target_value);
+                   int *target_value);
 
 nn_type sigmoid(nn_type z);
 nn_type sigmoidPrime(nn_type z);
