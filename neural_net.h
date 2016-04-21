@@ -29,7 +29,7 @@ struct neural_net {
    //    weights * activation(previous level) + biases
    // This value is passes through the sigmoid function to get
    // the layer's activation.
-    nn_type **z_vector;
+    nn_type **z_matrix;
 
     // Each entry in 'activation' is a pointer to an array of
     // the activations for the layer. The activation is the

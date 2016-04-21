@@ -3,19 +3,22 @@
 
 #include "neural_net.h"
 
-void matrix_vector_multiply(nn_type *output,
-                            nn_type *M,
-                            nn_type *V,
-                            int M_row_dim,
-                            int M_col_dim);
-
-void add_vectors(nn_type *V1,
-                 nn_type *V2,
-                 int dim);
+// This method multiplies the weight matrix by the
+// preivous layers activation matrix, and adds the
+// bias matrix to the result. The result is the
+// layers so-called 'z_vector'
+void calculate_z_matrix(nn_type *z_matrix,
+                        nn_type *weight,
+                        nn_type *activation,
+                        nn_type *bias,
+                        int weight_rows,
+                        int weight_cols,
+                        int activation_cols);
 
 void sigmoidify(nn_type *activation,
                 nn_type *z_vector,
-                int dim);
+                int rows,
+                int cols);
 
 void delta_output_layer(nn_type *delta,
                         nn_type *activation,

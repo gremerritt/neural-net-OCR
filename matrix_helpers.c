@@ -1,62 +1,33 @@
 #include <stdio.h>
 #include "neural_net.h"
 
-void matrix_vector_multiply(nn_type *output,
-                            nn_type *M,
-                            nn_type *V,
-                            int M_row_dim,
-                            int M_col_dim)
+void calculate_z_matrix(nn_type *z_matrix,
+                        nn_type *weight,
+                        nn_type *activation,
+                        nn_type *bias,
+                        int weight_rows,
+                        int weight_cols,
+                        int activation_cols)
 {
-  int row, col;
-
-  // printf("\nM:\n");
-  // for (row=0; row<M_row_dim; row++) {
-  //   for (col=0; col<M_col_dim; col++)
-  //     printf("%f ", M[(row*M_col_dim) + col]);
-  //   printf("\n");
-  // }
-  // printf("\nV:\n");
-  // for (col=0; col<M_col_dim; col++)
-  //   printf("%f\n", V[col]);
-
-  for (row=0; row<M_row_dim; row++) {
-    int col_offset = row*M_col_dim;
-    nn_type accum = 0.0;
-    for (col=0; col<M_col_dim; col++) {
-      accum += M[col_offset + col] * V[col];
+  // this is a boring simple matrix multiply
+  int Act_col, W_row, W_col;
+  for (Act_col=0; Act_col<activation_cols; Act_col++) {
+    for (W_row=0; W_row<weight_rows; W_row++) {
+      nn_type accum = 0.0;
+      int weight_offset = W_row*weight_cols;
+      for (W_col=0; W_col<weight_cols; W_col++) {
+        accum += weight[weight_offset + W_col] * activation[(W_col * activation_cols) + Act_col];
+      }
+      accum += bias[W_row];
+      z_matrix[(W_row*activation_cols) + Act_col] = accum;
     }
-    output[row] = accum;
   }
-
-  // printf("\nResult:\n");
-  // for (row=0; row<M_row_dim; row++)
-  //   printf("%f\n", output[row]);
-}
-
-void add_vectors(nn_type *V1,
-                 nn_type *V2,
-                 int dim)
-{
-  int i;
-
-  // printf("\nV1:\n");
-  // for (i=0; i<dim; i++)
-  //   printf("%f\n", V1[i]);
-  // printf("\nV2:\n");
-  // for (i=0; i<dim; i++)
-  //   printf("%f\n", V2[i]);
-
-  for (i=0; i<dim; i++)
-    V1[i] = V1[i] + V2[i];
-
-  // printf("\nVout:\n");
-  // for (i=0; i<dim; i++)
-  //   printf("%f\n", V1[i]);
 }
 
 void sigmoidify(nn_type *activation,
                 nn_type *z_vector,
-                int dim)
+                int rows,
+                int cols)
 {
   int i;
 
@@ -64,7 +35,7 @@ void sigmoidify(nn_type *activation,
   // for (i=0; i<dim; i++)
   //   printf("%f\n", z_vector[i]);
 
-  for (i=0; i<dim; i++) activation[i] = sigmoid(z_vector[i]);
+  for (i=0; i<rows*cols; i++) activation[i] = sigmoid(z_vector[i]);
 
   // printf("\nactivation:\n");
   // for (i=0; i<dim; i++)

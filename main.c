@@ -6,16 +6,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DIM 28
+#define DIM 3
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 200
+#define NUM_NODES_IN_HIDDEN_LAYERS 6
 #define NUM_HIDDEN_LAYERS 1
 #define LEARNING_RATE 3.0
-#define BATCH_SIZE 10
-#define EPOCHS 3
-#define TRAINING_SAMPLES 60000
-#define TEST_SAMPLES 10000
-#define TRAINING_PRINT_RESULTS_EVERY 100000
+#define BATCH_SIZE 3
+#define EPOCHS 1
+#define TRAINING_SAMPLES 1
+#define TEST_SAMPLES 0
+#define TRAINING_PRINT_RESULTS_EVERY 1
 #define TEST_PRINT_RESULTS_EVERY 1000
 
 int main(int argc, char **argv) {
@@ -83,29 +83,33 @@ int main(int argc, char **argv) {
 	printf("\nInitializing neural net:");
 	struct neural_net nn;
 	create_neural_net(&nn, number_of_hidden_layers,
-		                     number_of_nodes_in_hidden_layers,
-												 number_of_inputs,
-												 number_of_outputs,
-												 batch_size,
-											   learning_rate);
+                         number_of_nodes_in_hidden_layers,
+                         number_of_inputs,
+                         number_of_outputs,
+                         batch_size,
+                         learning_rate);
 
 	printf("\n  Total Layers:           %i", nn.number_of_hidden_layers+2);
 	printf("\n  Hidden Layers:          %i", nn.number_of_hidden_layers);
 	printf("\n  Inputs:                 %i", nn.number_of_inputs);
 	printf("\n  Outputs:                %i", nn.number_of_outputs);
 	printf("\n  Nodes in Hidden Layers: %i", nn.number_of_nodes_in_hidden_layers);
+	printf("\n  Batch Size:             %i", nn.batch_size);
 	printf("\n  Learning Rate:          %f", nn.eta);
 	printf("\n------------------\n");
 
 	int count = 0;
 	int epoch;
 
+	nn_type A[DIM*DIM*BATCH_SIZE];
+	for (i=0; i<DIM*DIM*BATCH_SIZE; i++) A[i] = (nn_type)(i+3) / (DIM*DIM*BATCH_SIZE+4);
+
 	// TRAINING
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
 		printf("  Epoch %i\n", epoch);
 		for (i=0; i<TRAINING_SAMPLES; i++) {
-			feed_forward(&nn, result, training_data[i].data, training_data[i].label, 1, &count);
+			feed_forward(&nn, result, A, training_data[i].label, 1, &count);
 			// if (i%TRAINING_PRINT_RESULTS_EVERY == 0) {
 			// 	printf("\n------------------\nlabel: %i\n", training_data[i].label);
 			// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);

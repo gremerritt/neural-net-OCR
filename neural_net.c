@@ -31,34 +31,38 @@ void create_neural_net(struct neural_net *nn,
   //---------------------------------------------------------------------------
   // allocate space for our 'bias', 'z_vector', 'activation' and 'delta' arrays and initialize them
   (*nn).bias       = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
-  (*nn).z_vector   = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  (*nn).z_matrix   = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
   (*nn).activation = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
   (*nn).delta      = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
   //
   // this loop does the hidden layers
   for (i=0; i<number_of_hidden_layers; i++) {
     (*nn).bias[i]       = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
-    (*nn).z_vector[i]   = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
-    (*nn).activation[i] = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
     (*nn).delta[i]      = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
+    (*nn).z_matrix[i]   = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
+    (*nn).activation[i] = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
     for (j=0; j<number_of_nodes_in_hidden_layers; j++) {
       (*nn).bias[i][j]       = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-      (*nn).z_vector[i][j]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-      (*nn).activation[i][j] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
       (*nn).delta[i][j]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
+    }
+    for (j=0; j<number_of_nodes_in_hidden_layers * batch_size; j++) {
+      (*nn).z_matrix[i][j]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
+      (*nn).activation[i][j] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
     }
   }
   //
   // this does the output layer
   (*nn).bias[number_of_hidden_layers]       = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
-  (*nn).z_vector[number_of_hidden_layers]   = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
-  (*nn).activation[number_of_hidden_layers] = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
   (*nn).delta[number_of_hidden_layers]      = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
+  (*nn).z_matrix[number_of_hidden_layers]   = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
+  (*nn).activation[number_of_hidden_layers] = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
   for (i=0; i<number_of_outputs; i++) {
     (*nn).bias[number_of_hidden_layers][i]       = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    (*nn).z_vector[number_of_hidden_layers][i]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    (*nn).activation[number_of_hidden_layers][i] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
     (*nn).delta[number_of_hidden_layers][i]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
+  }
+  for (i=0; i<number_of_outputs * batch_size; i++) {
+    (*nn).z_matrix[number_of_hidden_layers][i]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
+    (*nn).activation[number_of_hidden_layers][i] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
   }
   //---------------------------------------------------------------------------
 
@@ -108,8 +112,8 @@ void destroy_nn(struct neural_net *nn)
 
   // free 'z-vector'
   for (i=0; i<number_of_hidden_layers + 1; i++)
-    free((*nn).z_vector[i]);
-  free ((*nn).z_vector);
+    free((*nn).z_matrix[i]);
+  free ((*nn).z_matrix);
 
   // free 'activation'
   for (i=0; i<number_of_hidden_layers + 1; i++)
@@ -135,63 +139,65 @@ void feed_forward(struct neural_net *nn,
   int number_of_inputs                 = (*nn).number_of_inputs;
   int number_of_hidden_layers          = (*nn).number_of_hidden_layers;
   int number_of_outputs                = (*nn).number_of_outputs;
+  int batch_size                       = (*nn).batch_size;
   nn_type *tmp_activation              = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
   nn_type *last_activation             = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
 
   //---------------------------------------------------------------------------
   // feed from input layer -> first hidden layer
-  //  do dot product
-  matrix_vector_multiply((*nn).z_vector[0],
-                        (*nn).weight[0],
-                        activation_initial,
-                        number_of_nodes_in_hidden_layers,
-                        number_of_inputs);
-  //  compute the z-vector
-  add_vectors((*nn).z_vector[0],
-              (*nn).bias[0],
-              number_of_nodes_in_hidden_layers);
-  //  compute activation
+  //  do matrix multiply
+  //    Dimensions:
+  //      Weight Matrix:      'Nodes in target layer' rows X 'Nodes in source layer' columns
+  //      Activation Matric:  'Nodes in source layer' rows X 'Batch size' columns
+  //  Get the z-matrix
+  calculate_z_matrix((*nn).z_matrix[0],
+                     (*nn).weight[0],
+                     activation_initial,
+                     (*nn).bias[0],
+                     number_of_nodes_in_hidden_layers,
+                     number_of_inputs,
+                     batch_size);
+  //  Compute activation
   sigmoidify((*nn).activation[0],
-             (*nn).z_vector[0],
-             number_of_nodes_in_hidden_layers);
+             (*nn).z_matrix[0],
+             number_of_nodes_in_hidden_layers,
+             batch_size);
   //---------------------------------------------------------------------------
 
   //---------------------------------------------------------------------------
   // feed through the hidden layers
   for(i=1; i<number_of_hidden_layers; i++) {
-    //  do dot product
-    matrix_vector_multiply((*nn).z_vector[i],
-                           (*nn).weight[i],
-                           (*nn).activation[i-1],
-                           number_of_nodes_in_hidden_layers,
-                           number_of_nodes_in_hidden_layers);
-    //  compute the z-vector
-    add_vectors((*nn).z_vector[i],
-                (*nn).bias[i],
-                number_of_nodes_in_hidden_layers);
-    //  compute activation
+    //  Get the z-matrix
+    calculate_z_matrix((*nn).z_matrix[i],
+                       (*nn).weight[i],
+                       (*nn).activation[i-1],
+                       (*nn).bias[i],
+                       number_of_nodes_in_hidden_layers,
+                       number_of_nodes_in_hidden_layers,
+                       batch_size);
+    //  Compute activation
     sigmoidify((*nn).activation[i],
-               (*nn).z_vector[i],
-               number_of_nodes_in_hidden_layers);
+               (*nn).z_matrix[i],
+               number_of_nodes_in_hidden_layers,
+               batch_size);
   }
   //---------------------------------------------------------------------------
 
   //---------------------------------------------------------------------------
   // feed from the last hidden layer -> output layer
-  //  do dot product
-  matrix_vector_multiply((*nn).z_vector[number_of_hidden_layers],
-                         (*nn).weight[number_of_hidden_layers],
-                         (*nn).activation[number_of_hidden_layers-1],
-                         number_of_outputs,
-                         number_of_nodes_in_hidden_layers);
-  //  compute the z-vector
-  add_vectors((*nn).z_vector[number_of_hidden_layers],
-              (*nn).bias[number_of_hidden_layers],
-              number_of_outputs);
+  //  Get the z-matrix
+  calculate_z_matrix((*nn).z_matrix[number_of_hidden_layers],
+                     (*nn).weight[number_of_hidden_layers],
+                     (*nn).activation[number_of_hidden_layers-1],
+                     (*nn).bias[number_of_hidden_layers],
+                     number_of_outputs,
+                     number_of_nodes_in_hidden_layers,
+                     batch_size);
   //  compute activation
   sigmoidify((*nn).activation[number_of_hidden_layers],
-             (*nn).z_vector[number_of_hidden_layers],
-             number_of_outputs);
+             (*nn).z_matrix[number_of_hidden_layers],
+             number_of_outputs,
+             batch_size);
   //---------------------------------------------------------------------------
 
   for (i=0; i<number_of_outputs; i++) result[i] = (*nn).activation[number_of_hidden_layers][i];
@@ -227,7 +233,7 @@ void backpropagate(struct neural_net *nn,
   // find the delta value in the output layer
   delta_output_layer((*nn).delta[number_of_hidden_layers],
                      (*nn).activation[number_of_hidden_layers],
-                     (*nn).z_vector[number_of_hidden_layers],
+                     (*nn).z_matrix[number_of_hidden_layers],
                      target_value,
                      number_of_outputs);
 
@@ -238,7 +244,7 @@ void backpropagate(struct neural_net *nn,
   delta_hidden_layers((*nn).delta[number_of_hidden_layers-1],
                       (*nn).weight[number_of_hidden_layers],
                       (*nn).delta[number_of_hidden_layers],
-                      (*nn).z_vector[number_of_hidden_layers-1],
+                      (*nn).z_matrix[number_of_hidden_layers-1],
                       number_of_outputs,
                       number_of_nodes_in_hidden_layers);
 
@@ -247,7 +253,7 @@ void backpropagate(struct neural_net *nn,
     delta_hidden_layers((*nn).delta[i],
                         (*nn).weight[i+1],
                         (*nn).delta[i+1],
-                        (*nn).z_vector[i],
+                        (*nn).z_matrix[i],
                         number_of_nodes_in_hidden_layers,
                         number_of_nodes_in_hidden_layers);
   }
