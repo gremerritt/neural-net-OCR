@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 	// 	}
 	// }
 
-	nn_type result[NUM_OUTPUTS];
+	nn_type result[NUM_OUTPUTS*BATCH_SIZE];
 	int number_of_hidden_layers          = NUM_HIDDEN_LAYERS;
 	int number_of_nodes_in_hidden_layers = NUM_NODES_IN_HIDDEN_LAYERS;
 	int number_of_inputs                 = DIM*DIM;
@@ -111,8 +111,12 @@ int main(int argc, char **argv) {
 		for (i=0; i<TRAINING_SAMPLES; i++) {
 			feed_forward(&nn, result, A, training_data[i].label, 1, &count);
 			// if (i%TRAINING_PRINT_RESULTS_EVERY == 0) {
+			// 	int row, col;
 			// 	printf("\n------------------\nlabel: %i\n", training_data[i].label);
-			// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);
+			// 	for (row=0; row<NUM_OUTPUTS; row++) {
+			// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+			// 		printf("\n");
+			// 	}
 			// }
 		}
 
@@ -120,8 +124,12 @@ int main(int argc, char **argv) {
 		for (i=0; i<TEST_SAMPLES; i++) {
 			feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
 			// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
+			// 	int row, col;
 			// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
-			// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);
+			// 	for (row=0; row<NUM_OUTPUTS; row++) {
+			// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+			// 		printf("\n");
+			// 	}
 			// }
 		}
 		printf("      Count: %i\n", count);
@@ -132,8 +140,12 @@ int main(int argc, char **argv) {
 	for (i=0; i<TEST_SAMPLES; i++) {
 		feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
 		// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
+		// 	int row, col;
 		// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
-		// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);
+		// 	for (row=0; row<NUM_OUTPUTS; row++) {
+		// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+		// 		printf("\n");
+		// 	}
 		// }
 	}
 

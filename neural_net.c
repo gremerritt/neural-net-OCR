@@ -200,21 +200,24 @@ void feed_forward(struct neural_net *nn,
              batch_size);
   //---------------------------------------------------------------------------
 
-  for (i=0; i<number_of_outputs; i++) result[i] = (*nn).activation[number_of_hidden_layers][i];
+  int num_outputs = number_of_outputs * batch_size;
+  for (i=0; i<num_outputs; i++) result[i] = (*nn).activation[number_of_hidden_layers][i];
 
   if (training) backpropagate(nn,
                               activation_initial,
                               target_value);
   else {
-    nn_type max = 0.0;
-    int max_index = 0;
-    for (i=0; i<number_of_outputs; i++) {
-      if ((*nn).activation[number_of_hidden_layers][i] > max) {
-        max = (*nn).activation[number_of_hidden_layers][i];
-        max_index = i;
+    for (i=0; i<batch_size; i++) {
+      nn_type max = 0.0;
+      int max_index = 0;
+      for (j=0; j<number_of_outputs; j++) {
+        if ((*nn).activation[number_of_hidden_layers][(j*batch_size)+i] > max) {
+          max = (*nn).activation[number_of_hidden_layers][(j*batch_size)+i];
+          max_index = j;
+        }
       }
+      if (max_index == target_value) (*count)++;
     }
-    if (max_index == target_value) (*count)++;
   }
 }
 
