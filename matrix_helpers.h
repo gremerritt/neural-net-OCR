@@ -33,20 +33,20 @@ void delta_hidden_layers(nn_type *delta,
                          nn_type *z_matrix,
                          int weight_rows,
                          int weight_cols,
-                         batch_size);
+                         int batch_size);
 
 void adjust_weight(nn_type *activation_initial,
                    nn_type *weight,
                    nn_type *delta,
                    int weight_rows,
                    int weight_cols,
-                   nn_type eta,
-                   int batch_size);
+                   int batch_size,
+                   nn_type eta);
 
 void adjust_bias(nn_type *bias,
                  nn_type *delta,
                  int dim,
-                 nn_type eta,
-                 int batch_size);
+                 int batch_size,
+                 nn_type eta);
 
 #endif

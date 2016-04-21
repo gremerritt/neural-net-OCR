@@ -115,10 +115,10 @@ void adjust_weight(nn_type *activation,
                    nn_type *delta,
                    int weight_rows,
                    int weight_cols,
-                   nn_type eta,
-                   int batch_size)
+                   int batch_size,
+                   nn_type eta)
 {
-  int row, col;
+  int row, col, batch;
 
   // printf("\n\nWeight:\n");
   // printf("[");
@@ -131,22 +131,32 @@ void adjust_weight(nn_type *activation,
   //
   // printf("\n\nActivation:\n");
   // printf("[");
-  // for (col=0; col<weight_cols; col++) {
-  //   if (col==weight_cols-1) printf("%f]", activation[col]);
-  //   else printf("%f;\n", activation[col]);
+  // for (row=0; row<weight_cols; row++) {
+  //   for (col=0; col<batch_size; col++)
+  //     printf("%f ", activation[(row*batch_size) + col]);
+  //   if (row==weight_cols-1) printf("]");
+  //   else printf(";\n");
   // }
   //
   // printf("\n\nDelta:\n");
   // printf("[");
   // for (row=0; row<weight_rows; row++) {
-  //   if (row==weight_rows-1) printf("%f]", delta[row]);
-  //   else printf("%f;\n", delta[row]);
+  //   for (col=0; col<batch_size; col++)
+  //     printf("%f ", delta[(row*batch_size) + col]);
+  //   if (row==weight_rows-1) printf("]");
+  //   else printf(";\n");
   // }
 
   for (row=0; row<weight_rows; row++) {
     int offset = row*weight_cols;
     for (col=0; col<weight_cols; col++) {
-      weight[offset + col] -= (eta / batch_size) * activation[col] * delta[row];
+      nn_type accum = 0.0;
+      int activation_offset = col*batch_size;
+      int delta_offset = row*batch_size;
+      for(batch=0; batch<batch_size; batch++) {
+        accum += activation[activation_offset + batch] * delta[delta_offset + batch];
+      }
+      weight[offset + col] -= (eta / batch_size) * accum;
     }
   }
 
@@ -155,7 +165,7 @@ void adjust_weight(nn_type *activation,
   // for (row=0; row<weight_rows; row++) {
   //   for (col=0; col<weight_cols; col++)
   //     printf("%f ", weight[(row*weight_cols) + col]);
-  //   if (row==weight_rows-1) printf("]\n\n");
+  //   if (row==weight_rows-1) printf("]");
   //   else printf(";\n");
   // }
 }
@@ -163,10 +173,10 @@ void adjust_weight(nn_type *activation,
 void adjust_bias(nn_type *bias,
                  nn_type *delta,
                  int dim,
-                 nn_type eta,
-                 int batch_size)
+                 int batch_size,
+                 nn_type eta)
 {
-  int i;
+  int i, batch;
 
   // printf("\n\nBias:\n");
   // printf("[");
@@ -183,7 +193,12 @@ void adjust_bias(nn_type *bias,
   // }
 
   for (i=0; i<dim; i++) {
-    bias[i] -= (eta / batch_size) * delta[i];
+    nn_type accum = 0.0;
+    int offset = i*batch_size;
+    for (batch=0; batch<batch_size; batch++) {
+      accum += delta[offset + batch];
+    }
+    bias[i] -= (eta / batch_size) * accum;
   }
 
   // printf("\n\nBias:\n");

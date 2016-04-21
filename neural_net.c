@@ -273,13 +273,13 @@ void backpropagate(struct neural_net *nn,
                 (*nn).delta[0],
                 number_of_nodes_in_hidden_layers,
                 number_of_inputs,
-                eta,
-                1);
+                batch_size,
+                eta);
   adjust_bias((*nn).bias[0],
               (*nn).delta[0],
               number_of_nodes_in_hidden_layers,
-              eta,
-              1);
+              batch_size,
+              eta);
   //
   //  adjust the hidden layers
   for (i=1; i<number_of_hidden_layers; i++) {
@@ -288,13 +288,13 @@ void backpropagate(struct neural_net *nn,
                   (*nn).delta[i],
                   number_of_nodes_in_hidden_layers,
                   number_of_nodes_in_hidden_layers,
-                  eta,
-                  1);
+                  batch_size,
+                  eta);
     adjust_bias((*nn).bias[i],
                 (*nn).delta[i],
                 number_of_nodes_in_hidden_layers,
-                eta,
-                1);
+                batch_size,
+                eta);
   }
   //
   //  adjust the output hidden layer
@@ -303,13 +303,13 @@ void backpropagate(struct neural_net *nn,
                 (*nn).delta[number_of_hidden_layers],
                 number_of_outputs,
                 number_of_nodes_in_hidden_layers,
-                eta,
-                1);
+                batch_size,
+                eta);
   adjust_bias((*nn).bias[number_of_hidden_layers],
               (*nn).delta[number_of_hidden_layers],
               number_of_outputs,
-              eta,
-              1);
+              batch_size,
+              eta);
   // -----------------------------------------------------------------
 }
 
