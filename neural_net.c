@@ -1,8 +1,8 @@
-#include "neural_net.h"
-#include "time.h"
-#include "matrix_helpers.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "neural_net.h"
+#include "matrix_helpers.h"
+#include "randomizing_helpers.h"
 
 // This function sets the various 'hyperparameters' (i.e. learning rate,
 // number of layers, nodes per layer, etc.) It also intiializes the
@@ -17,9 +17,15 @@ void create_neural_net(struct neural_net *nn,
                        int batch_size,
                        nn_type eta)
 {
-  int i, j;
-  // srand(time(NULL));
-  srand(1461103727);
+  int i, j, random_count;
+  random_count = number_of_hidden_layers * number_of_nodes_in_hidden_layers;
+  random_count += number_of_outputs;
+  random_count += number_of_nodes_in_hidden_layers * (number_of_inputs +
+                                                      (number_of_hidden_layers * number_of_nodes_in_hidden_layers ) +
+                                                      number_of_outputs);
+  double *random = malloc( random_count * sizeof(double) );
+  generate_guassian_distribution(random, random_count);
+  random_count = 0;
 
   (*nn).number_of_hidden_layers          = number_of_hidden_layers;
   (*nn).number_of_nodes_in_hidden_layers = number_of_nodes_in_hidden_layers;
@@ -41,14 +47,8 @@ void create_neural_net(struct neural_net *nn,
     (*nn).delta[i]      = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
     (*nn).z_matrix[i]   = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
     (*nn).activation[i] = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
-    for (j=0; j<number_of_nodes_in_hidden_layers; j++) {
-      (*nn).bias[i][j]       = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    }
-    for (j=0; j<number_of_nodes_in_hidden_layers * batch_size; j++) {
-      (*nn).delta[i][j]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-      (*nn).z_matrix[i][j]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-      (*nn).activation[i][j] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    }
+    for (j=0; j<number_of_nodes_in_hidden_layers; j++)
+      (*nn).bias[i][j] = random[random_count++];
   }
   //
   // this does the output layer
@@ -56,14 +56,8 @@ void create_neural_net(struct neural_net *nn,
   (*nn).delta[number_of_hidden_layers]      = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
   (*nn).z_matrix[number_of_hidden_layers]   = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
   (*nn).activation[number_of_hidden_layers] = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
-  for (i=0; i<number_of_outputs; i++) {
-    (*nn).bias[number_of_hidden_layers][i]       = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-  }
-  for (i=0; i<number_of_outputs * batch_size; i++) {
-    (*nn).delta[number_of_hidden_layers][i]      = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    (*nn).z_matrix[number_of_hidden_layers][i]   = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    (*nn).activation[number_of_hidden_layers][i] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-  }
+  for (i=0; i<number_of_outputs; i++)
+    (*nn).bias[number_of_hidden_layers][i] = random[random_count++];
   //---------------------------------------------------------------------------
 
   //---------------------------------------------------------------------------
@@ -73,26 +67,25 @@ void create_neural_net(struct neural_net *nn,
   // this does the first hidden layer to the input layer
   int number_of_matrix_elements = number_of_inputs * number_of_nodes_in_hidden_layers;
   (*nn).weight[0] = (nn_type *)malloc( number_of_matrix_elements * sizeof( nn_type ) );
-  for (i=0; i<number_of_matrix_elements; i++) {
-    (*nn).weight[0][i] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-  }
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*nn).weight[0][i] = random[random_count++];
   //
   // this does all the hidden layers
   number_of_matrix_elements = number_of_nodes_in_hidden_layers * number_of_nodes_in_hidden_layers;
   for (i=1; i<number_of_hidden_layers; i++) {
     (*nn).weight[i] = (nn_type *)malloc( number_of_matrix_elements * sizeof( nn_type ) );
-    for (j=0; j<number_of_matrix_elements; j++) {
-      (*nn).weight[i][j] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-    }
+    for (j=0; j<number_of_matrix_elements; j++)
+      (*nn).weight[i][j] = random[random_count++];
   }
   //
   // this does the output layer to the last hidden layer
   number_of_matrix_elements = number_of_outputs * number_of_nodes_in_hidden_layers;
   (*nn).weight[number_of_hidden_layers] = (nn_type *)malloc( number_of_matrix_elements * sizeof( nn_type ) );
-  for (j=0; j<number_of_matrix_elements; j++) {
-    (*nn).weight[number_of_hidden_layers][j] = ((nn_type)rand() / ( (nn_type)RAND_MAX / 2.0 )) - 1.0;
-  }
+  for (j=0; j<number_of_matrix_elements; j++)
+    (*nn).weight[number_of_hidden_layers][j] = random[random_count++];
   //---------------------------------------------------------------------------
+
+  free(random);
 }
 
 void destroy_nn(struct neural_net *nn)
