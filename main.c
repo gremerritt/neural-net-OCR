@@ -6,18 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DIM 3
+#define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 6
-#define NUM_HIDDEN_LAYERS 1
-#define LEARNING_RATE 3.0
-#define BATCH_SIZE 3
+#define NUM_NODES_IN_HIDDEN_LAYERS 60
+#define NUM_HIDDEN_LAYERS 2
+#define LEARNING_RATE 1.25
+#define BATCH_SIZE 5
 #define EPOCHS 1
-#define TRAINING_SAMPLES 1
-#define TEST_SAMPLES 0
-#define TRAINING_PRINT_RESULTS_EVERY 1
-#define TEST_PRINT_RESULTS_EVERY 1000
+#define TRAINING_SAMPLES 60000
+#define TEST_SAMPLES 10000
+#define TRAINING_PRINT_RESULTS_EVERY 30000
+#define TEST_PRINT_RESULTS_EVERY 10000
 
+void create_batch(nn_type *batch, int *labels, mnist_data *data, int batch_size, int epoch);
 int main(int argc, char **argv) {
 	mnist_data *training_data;
 	mnist_data *test_data;
@@ -101,39 +102,43 @@ int main(int argc, char **argv) {
 	int count = 0;
 	int epoch;
 
-	nn_type A[DIM*DIM*BATCH_SIZE];
-	int labels[BATCH_SIZE];
-	for (i=0; i<DIM*DIM*BATCH_SIZE; i++) A[i] = (nn_type)(i+3) / (DIM*DIM*BATCH_SIZE+4);
-	for (i=0; i<BATCH_SIZE; i++) labels[i] = i;
+	nn_type *batch = malloc( DIM * DIM * BATCH_SIZE * sizeof(nn_type) );
+	int *label = malloc( BATCH_SIZE * sizeof(int) );
 
 	// TRAINING
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
 		printf("  Epoch %i\n", epoch);
-		for (i=0; i<TRAINING_SAMPLES; i++) {
-			// feed_forward(&nn, result, A, training_data[i].label, 1, &count);
-			feed_forward(&nn, result, A, labels, 1, &count);
-			// if (i%TRAINING_PRINT_RESULTS_EVERY == 0) {
-			// 	int row, col;
-			// 	printf("\n------------------\nlabel: %i\n", training_data[i].label);
-			// 	for (row=0; row<NUM_OUTPUTS; row++) {
-			// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
-			// 		printf("\n");
-			// 	}
-			// }
+		for (i=0; i<TRAINING_SAMPLES / BATCH_SIZE; i++) {
+			create_batch(batch, label, training_data, BATCH_SIZE, i);
+			feed_forward(&nn, result, batch, label, 1, &count);
+			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0) {
+				int row, col;
+				printf("\n------------------\nITERATION %i\n", i);
+				for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
+				printf("\n");
+				for (row=0; row<NUM_OUTPUTS; row++) {
+					for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+					printf("\n");
+				}
+			}
 		}
 
+		int previous_count = 0;
 		printf("    Running tests...\n");
-		for (i=0; i<TEST_SAMPLES; i++) {
-			// feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
-			// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
-			// 	int row, col;
-			// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
-			// 	for (row=0; row<NUM_OUTPUTS; row++) {
-			// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
-			// 		printf("\n");
-			// 	}
-			// }
+		for (i=0; i<TEST_SAMPLES / BATCH_SIZE; i++) {
+			create_batch(batch, label, test_data, BATCH_SIZE, i);
+			feed_forward(&nn, result, batch, label, 0, &count);
+			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0) {
+				int row, col;
+				printf("\n------------------\nITERATION %i\n", i);
+				for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
+				printf("\n");
+				for (row=0; row<NUM_OUTPUTS; row++) {
+					for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+					printf("\n");
+				}
+			}
 		}
 		printf("      Count: %i\n", count);
 		count = 0;
@@ -159,4 +164,17 @@ int main(int argc, char **argv) {
 	free(test_data);
 
 	return 0;
+}
+
+void create_batch(nn_type *batch, int *label, mnist_data *data, int batch_size, int iteration) {
+	int i, j;
+	int mod = batch_size * iteration;
+	int max = batch_size * (iteration + 1);
+	for (i=mod; i<max; i++) {
+		int offset = (iteration > 0) ? (i % mod) : i;
+		label[offset] = data[i].label;
+		for (j=0; j<DIM*DIM; j++) {
+			batch[(j*batch_size) + offset] = data[i].data[j];
+		}
+	}
 }
