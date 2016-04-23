@@ -3,21 +3,22 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "mnist.h"
 #include "neural_net.h"
 #include "randomizing_helpers.h"
 
 #define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 50
+#define NUM_NODES_IN_HIDDEN_LAYERS 70
 #define NUM_HIDDEN_LAYERS 2
 #define LEARNING_RATE 1.5
-#define BATCH_SIZE 5
+#define BATCH_SIZE 2
 #define EPOCHS 20
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
 #define TRAINING_PRINT_RESULTS_EVERY 30000
-#define TEST_PRINT_RESULTS_EVERY 400
+#define TEST_PRINT_RESULTS_EVERY 500
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
@@ -91,6 +92,39 @@ int main(int argc, char **argv) {
 	int number_of_outputs                = NUM_OUTPUTS;
 	int batch_size                       = BATCH_SIZE;
 	nn_type learning_rate                = LEARNING_RATE;
+
+	// process command-line arguments
+	char * pEnd;
+	for (i=1; i<argc; i++) {
+		char *str   = argv[i];
+		char *param = strtok(str, "=");
+		char *val   = strtok(NULL, "=");
+
+		if ((strcmp(param, "--hidden-layers") == 0) ||
+		    (strcmp(param, "--hl") == 0)) {
+			number_of_hidden_layers = (int)strtol( strtok(val, " ") , &pEnd , 10);
+		}
+		else if ((strcmp(param, "--hidden-nodes") == 0) ||
+		         (strcmp(param, "--hn") == 0)) {
+			number_of_nodes_in_hidden_layers = (int)strtol( strtok(val, " ") , &pEnd , 10);
+		}
+		else if ((strcmp(param, "--inputs") == 0) ||
+		         (strcmp(param, "--i") == 0)) {
+			number_of_inputs = (int)strtol( strtok(val, " ") , &pEnd , 10);
+		}
+		else if ((strcmp(param, "--outputs") == 0) ||
+		         (strcmp(param, "--o") == 0)) {
+			number_of_outputs = (int)strtol( strtok(val, " ") , &pEnd , 10);
+		}
+		else if ((strcmp(param, "--batch_size") == 0) ||
+		         (strcmp(param, "--bs") == 0)) {
+			batch_size = (int)strtol( strtok(val, " ") , &pEnd , 10);
+		}
+		else if ((strcmp(param, "--learning-rate") == 0) ||
+		         (strcmp(param, "--lr") == 0)) {
+			learning_rate = (nn_type)strtod( strtok(val, " ") , &pEnd);
+		}
+	}
 
 	printf("\nInitializing neural net:");
 	struct neural_net nn;
