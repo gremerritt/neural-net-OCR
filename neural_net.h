@@ -61,7 +61,8 @@ void feed_forward(struct neural_net *nn,
                   nn_type *activation_initial,
                   int *target_value,
                   char training,
-                  int *count);
+                  int *count,
+                  char *correct);
 
 void backpropagate(struct neural_net *nn,
                    nn_type *activation_initial,

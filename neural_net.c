@@ -124,7 +124,8 @@ void feed_forward(struct neural_net *nn,
                   nn_type *activation_initial,
                   int *target_value,
                   char training,
-                  int *count)
+                  int *count,
+                  char *correct)
 {
   int i, j;
   int row, col;
@@ -209,7 +210,12 @@ void feed_forward(struct neural_net *nn,
           max_index = j;
         }
       }
-      if (max_index == target_value[i]) (*count)++;
+
+      if (max_index == target_value[i]) {
+        (*count)++;
+        correct[i] = max_index;
+      }
+      else correct[i] = max_index + number_of_outputs;
     }
   }
 }

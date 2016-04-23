@@ -9,7 +9,7 @@
 
 #define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 60
+#define NUM_NODES_IN_HIDDEN_LAYERS 50
 #define NUM_HIDDEN_LAYERS 2
 #define LEARNING_RATE 1.5
 #define BATCH_SIZE 5
@@ -17,7 +17,11 @@
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
 #define TRAINING_PRINT_RESULTS_EVERY 30000
-#define TEST_PRINT_RESULTS_EVERY 10000
+#define TEST_PRINT_RESULTS_EVERY 400
+
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[32m"
 
 void create_batch(nn_type *batch,
 	                int *label,
@@ -25,6 +29,7 @@ void create_batch(nn_type *batch,
 									int *sequence,
 									int batch_size,
 									int iteration);
+void print_result(int iter, int *label, nn_type *result, char *correct);
 int main(int argc, char **argv) {
 	mnist_data *training_data;
 	mnist_data *test_data;
@@ -108,71 +113,38 @@ int main(int argc, char **argv) {
 	int count = 0;
 	int epoch;
 
-	int *sequence = malloc( TRAINING_SAMPLES * sizeof(int) );
+	int *sequence  = malloc( TRAINING_SAMPLES * sizeof(int) );
 	nn_type *batch = malloc( DIM * DIM * BATCH_SIZE * sizeof(nn_type) );
-	int *label = malloc( BATCH_SIZE * sizeof(int) );
+	int *label     = malloc( BATCH_SIZE * sizeof(int) );
+	char *correct  = malloc( BATCH_SIZE * sizeof(char) );
 
 	// TRAINING
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
-		printf("  Epoch %i\n", epoch);
+		printf("\n  Epoch %i\n", epoch);
 
 		for (i=0; i<TRAINING_SAMPLES; i++) sequence[i] = i;
 		shuffle(sequence, TRAINING_SAMPLES);
 
 		for (i=0; i<TRAINING_SAMPLES / BATCH_SIZE; i++) {
 			create_batch(batch, label, training_data, sequence, BATCH_SIZE, i);
-			feed_forward(&nn, result, batch, label, 1, &count);
-			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0) {
-				int row, col;
-				printf("\n------------------\nITERATION %i\n", i);
-				for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
-				printf("\n");
-				for (row=0; row<NUM_OUTPUTS; row++) {
-					for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
-					printf("\n");
-				}
-			}
+			feed_forward(&nn, result, batch, label, 1, &count, correct);
+			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0)
+				print_result(i, label, result, correct)
 		}
 
 		int previous_count = 0;
 		printf("    Running tests...\n");
 		for (i=0; i<TEST_SAMPLES / BATCH_SIZE; i++) {
-
 			for (j=0; j<TEST_SAMPLES; j++) sequence[j] = j;
-
 			create_batch(batch, label, test_data, sequence, BATCH_SIZE, i);
-
-			feed_forward(&nn, result, batch, label, 0, &count);
-			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0) {
-				int row, col;
-				printf("\n------------------\nITERATION %i\n", i);
-				for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
-				printf("\n");
-				for (row=0; row<NUM_OUTPUTS; row++) {
-					for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
-					printf("\n");
-				}
-			}
+			feed_forward(&nn, result, batch, label, 0, &count, correct);
+			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0)
+				print_result(i, label, result, correct);
 		}
-		printf("      Count: %i\n", count);
+		printf("\n      Count: %i\n", count);
 		count = 0;
 	}
-
-	printf("\nRunning tests...\n");
-	for (i=0; i<TEST_SAMPLES; i++) {
-		// feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
-		// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
-		// 	int row, col;
-		// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
-		// 	for (row=0; row<NUM_OUTPUTS; row++) {
-		// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
-		// 		printf("\n");
-		// 	}
-		// }
-	}
-
-	printf("\nCount: %i\n", count);
 
 	destroy_nn(&nn);
 	free(training_data);
@@ -197,5 +169,21 @@ void create_batch(nn_type *batch,
 		for (j=0; j<DIM*DIM; j++) {
 			batch[(j*batch_size) + offset] = data[sequence[i]].data[j];
 		}
+	}
+}
+
+void print_result(int iter, int *label, nn_type *result, char *correct)
+{
+	int row, col;
+	printf("\n    ITERATION %i\n    ", iter);
+	for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
+	printf("\n    ");
+	for (row=0; row<NUM_OUTPUTS; row++) {
+		for (col=0; col<BATCH_SIZE; col++) {
+			if (correct[col] == row+10)   printf(KRED "%f  ", result[(row*BATCH_SIZE)+col]);
+			else if (correct[col] == row) printf(KGRN "%f  ", result[(row*BATCH_SIZE)+col]);
+			else                          printf(KNRM "%f  ", result[(row*BATCH_SIZE)+col]);
+		}
+		printf(KNRM "\n    ");
 	}
 }
