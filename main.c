@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
 			create_batch(batch, label, training_data, sequence, BATCH_SIZE, i);
 			feed_forward(&nn, result, batch, label, 1, &count, correct);
 			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0)
-				print_result(i, label, result, correct)
+				print_result(i, label, result, correct);
 		}
 
 		int previous_count = 0;
