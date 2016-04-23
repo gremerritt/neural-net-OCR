@@ -10,6 +10,7 @@ struct neural_net {
   int number_of_nodes_in_hidden_layers;
   int number_of_inputs;
   int number_of_outputs;
+  int batch_size;
   nn_type eta;   // eta is the learning rate
 
   // Each entry in 'biases' is a pointer to an array -
@@ -28,7 +29,7 @@ struct neural_net {
    //    weights * activation(previous level) + biases
    // This value is passes through the sigmoid function to get
    // the layer's activation.
-    nn_type **z_vector;
+    nn_type **z_matrix;
 
     // Each entry in 'activation' is a pointer to an array of
     // the activations for the layer. The activation is the
@@ -52,18 +53,19 @@ void create_neural_net(struct neural_net *nn,
                        int number_of_nodes_in_hidden_layers,
                        int number_of_inputs,
                        int number_of_outputs,
+                       int batch_size,
                        nn_type eta);
 
 void feed_forward(struct neural_net *nn,
                   nn_type *result,
                   nn_type *activation_initial,
-                  int target_value,
+                  int *target_value,
                   char training,
                   int *count);
 
 void backpropagate(struct neural_net *nn,
                    nn_type *activation_initial,
-                   int target_value);
+                   int *target_value);
 
 nn_type sigmoid(nn_type z);
 nn_type sigmoidPrime(nn_type z);

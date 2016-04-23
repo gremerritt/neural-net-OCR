@@ -3,45 +3,50 @@
 
 #include "neural_net.h"
 
-void matrix_vector_multiply(nn_type *output,
-                            nn_type *M,
-                            nn_type *V,
-                            int M_row_dim,
-                            int M_col_dim);
-
-void add_vectors(nn_type *V1,
-                 nn_type *V2,
-                 int dim);
+// This method multiplies the weight matrix by the
+// preivous layers activation matrix, and adds the
+// bias matrix to the result. The result is the
+// layers so-called 'z_vector'
+void calculate_z_matrix(nn_type *z_matrix,
+                        nn_type *weight,
+                        nn_type *activation,
+                        nn_type *bias,
+                        int weight_rows,
+                        int weight_cols,
+                        int activation_cols);
 
 void sigmoidify(nn_type *activation,
                 nn_type *z_vector,
-                int dim);
+                int rows,
+                int cols);
 
 void delta_output_layer(nn_type *delta,
                         nn_type *activation,
-                        nn_type *z_vector,
-                        int target_value,
-                        int dim);
+                        nn_type *z_matrix,
+                        int *target_value,
+                        int outputs,
+                        int batch_size);
 
 void delta_hidden_layers(nn_type *delta,
                          nn_type *weight_downstream,
                          nn_type *delta_downstream,
-                         nn_type *z_vector,
+                         nn_type *z_matrix,
                          int weight_rows,
-                         int weight_cols);
+                         int weight_cols,
+                         int batch_size);
 
 void adjust_weight(nn_type *activation_initial,
                    nn_type *weight,
                    nn_type *delta,
                    int weight_rows,
                    int weight_cols,
-                   nn_type eta,
-                   int batch_size);
+                   int batch_size,
+                   nn_type eta);
 
 void adjust_bias(nn_type *bias,
                  nn_type *delta,
                  int dim,
-                 nn_type eta,
-                 int batch_size);
+                 int batch_size,
+                 nn_type eta);
 
 #endif

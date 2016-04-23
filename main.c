@@ -1,22 +1,30 @@
 #define USE_MNIST_LOADER
 #define MNIST_DOUBLE
 
-#include "mnist.h"
-#include "neural_net.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "mnist.h"
+#include "neural_net.h"
+#include "randomizing_helpers.h"
 
 #define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 30
-#define NUM_HIDDEN_LAYERS 1
-#define LEARNING_RATE 3.0
-#define EPOCHS 3
+#define NUM_NODES_IN_HIDDEN_LAYERS 60
+#define NUM_HIDDEN_LAYERS 2
+#define LEARNING_RATE 1.5
+#define BATCH_SIZE 5
+#define EPOCHS 20
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
-#define TRAINING_PRINT_RESULTS_EVERY 100000
-#define TEST_PRINT_RESULTS_EVERY 1000
+#define TRAINING_PRINT_RESULTS_EVERY 30000
+#define TEST_PRINT_RESULTS_EVERY 10000
 
+void create_batch(nn_type *batch,
+	                int *label,
+									mnist_data *data,
+									int *sequence,
+									int batch_size,
+									int iteration);
 int main(int argc, char **argv) {
 	mnist_data *training_data;
 	mnist_data *test_data;
@@ -71,51 +79,81 @@ int main(int argc, char **argv) {
 	// 	}
 	// }
 
-	nn_type result[NUM_OUTPUTS];
+	nn_type result[NUM_OUTPUTS*BATCH_SIZE];
 	int number_of_hidden_layers          = NUM_HIDDEN_LAYERS;
 	int number_of_nodes_in_hidden_layers = NUM_NODES_IN_HIDDEN_LAYERS;
 	int number_of_inputs                 = DIM*DIM;
 	int number_of_outputs                = NUM_OUTPUTS;
+	int batch_size                       = BATCH_SIZE;
 	nn_type learning_rate                = LEARNING_RATE;
 
 	printf("\nInitializing neural net:");
 	struct neural_net nn;
 	create_neural_net(&nn, number_of_hidden_layers,
-		                     number_of_nodes_in_hidden_layers,
-												 number_of_inputs,
-												 number_of_outputs,
-											   learning_rate);
+                         number_of_nodes_in_hidden_layers,
+                         number_of_inputs,
+                         number_of_outputs,
+                         batch_size,
+                         learning_rate);
 
 	printf("\n  Total Layers:           %i", nn.number_of_hidden_layers+2);
 	printf("\n  Hidden Layers:          %i", nn.number_of_hidden_layers);
 	printf("\n  Inputs:                 %i", nn.number_of_inputs);
 	printf("\n  Outputs:                %i", nn.number_of_outputs);
 	printf("\n  Nodes in Hidden Layers: %i", nn.number_of_nodes_in_hidden_layers);
+	printf("\n  Batch Size:             %i", nn.batch_size);
 	printf("\n  Learning Rate:          %f", nn.eta);
 	printf("\n------------------\n");
 
 	int count = 0;
 	int epoch;
 
+	int *sequence = malloc( TRAINING_SAMPLES * sizeof(int) );
+	nn_type *batch = malloc( DIM * DIM * BATCH_SIZE * sizeof(nn_type) );
+	int *label = malloc( BATCH_SIZE * sizeof(int) );
+
 	// TRAINING
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
 		printf("  Epoch %i\n", epoch);
-		for (i=0; i<TRAINING_SAMPLES; i++) {
-			feed_forward(&nn, result, training_data[i].data, training_data[i].label, 1, &count);
-			// if (i%TRAINING_PRINT_RESULTS_EVERY == 0) {
-			// 	printf("\n------------------\nlabel: %i\n", training_data[i].label);
-			// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);
-			// }
+
+		for (i=0; i<TRAINING_SAMPLES; i++) sequence[i] = i;
+		shuffle(sequence, TRAINING_SAMPLES);
+
+		for (i=0; i<TRAINING_SAMPLES / BATCH_SIZE; i++) {
+			create_batch(batch, label, training_data, sequence, BATCH_SIZE, i);
+			feed_forward(&nn, result, batch, label, 1, &count);
+			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0) {
+				int row, col;
+				printf("\n------------------\nITERATION %i\n", i);
+				for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
+				printf("\n");
+				for (row=0; row<NUM_OUTPUTS; row++) {
+					for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+					printf("\n");
+				}
+			}
 		}
 
+		int previous_count = 0;
 		printf("    Running tests...\n");
-		for (i=0; i<TEST_SAMPLES; i++) {
-			feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
-			// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
-			// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
-			// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);
-			// }
+		for (i=0; i<TEST_SAMPLES / BATCH_SIZE; i++) {
+
+			for (j=0; j<TEST_SAMPLES; j++) sequence[j] = j;
+
+			create_batch(batch, label, test_data, sequence, BATCH_SIZE, i);
+
+			feed_forward(&nn, result, batch, label, 0, &count);
+			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0) {
+				int row, col;
+				printf("\n------------------\nITERATION %i\n", i);
+				for (row=0; row<BATCH_SIZE; row++) printf("       %i  ", label[row]);
+				printf("\n");
+				for (row=0; row<NUM_OUTPUTS; row++) {
+					for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+					printf("\n");
+				}
+			}
 		}
 		printf("      Count: %i\n", count);
 		count = 0;
@@ -123,10 +161,14 @@ int main(int argc, char **argv) {
 
 	printf("\nRunning tests...\n");
 	for (i=0; i<TEST_SAMPLES; i++) {
-		feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
+		// feed_forward(&nn, result, test_data[i].data, test_data[i].label, 0, &count);
 		// if (i%TEST_PRINT_RESULTS_EVERY == 0) {
+		// 	int row, col;
 		// 	printf("\n------------------\nlabel: %i\n", test_data[i].label);
-		// 	for (j=0; j<NUM_OUTPUTS; j++) printf("  %f\n", result[j]);
+		// 	for (row=0; row<NUM_OUTPUTS; row++) {
+		// 		for (col=0; col<BATCH_SIZE; col++) printf("%f  ", result[(row*BATCH_SIZE)+col]);
+		// 		printf("\n");
+		// 	}
 		// }
 	}
 
@@ -137,4 +179,23 @@ int main(int argc, char **argv) {
 	free(test_data);
 
 	return 0;
+}
+
+void create_batch(nn_type *batch,
+	                int *label,
+									mnist_data *data,
+									int *sequence,
+									int batch_size,
+									int iteration)
+{
+	int i, j;
+	int mod = batch_size * iteration;
+	int max = batch_size * (iteration + 1);
+	for (i=mod; i<max; i++) {
+		int offset = (iteration > 0) ? (i % mod) : i;
+		label[offset] = data[sequence[i]].label;
+		for (j=0; j<DIM*DIM; j++) {
+			batch[(j*batch_size) + offset] = data[sequence[i]].data[j];
+		}
+	}
 }
