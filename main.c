@@ -1,24 +1,30 @@
 #define USE_MNIST_LOADER
 #define MNIST_DOUBLE
 
-#include "mnist.h"
-#include "neural_net.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "mnist.h"
+#include "neural_net.h"
+#include "randomizing_helpers.h"
 
 #define DIM 28
 #define NUM_OUTPUTS 10
 #define NUM_NODES_IN_HIDDEN_LAYERS 60
 #define NUM_HIDDEN_LAYERS 2
-#define LEARNING_RATE 1.25
+#define LEARNING_RATE 1.5
 #define BATCH_SIZE 5
-#define EPOCHS 1
+#define EPOCHS 20
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
 #define TRAINING_PRINT_RESULTS_EVERY 30000
 #define TEST_PRINT_RESULTS_EVERY 10000
 
-void create_batch(nn_type *batch, int *labels, mnist_data *data, int batch_size, int epoch);
+void create_batch(nn_type *batch,
+	                int *label,
+									mnist_data *data,
+									int *sequence,
+									int batch_size,
+									int iteration);
 int main(int argc, char **argv) {
 	mnist_data *training_data;
 	mnist_data *test_data;
@@ -102,6 +108,7 @@ int main(int argc, char **argv) {
 	int count = 0;
 	int epoch;
 
+	int *sequence = malloc( TRAINING_SAMPLES * sizeof(int) );
 	nn_type *batch = malloc( DIM * DIM * BATCH_SIZE * sizeof(nn_type) );
 	int *label = malloc( BATCH_SIZE * sizeof(int) );
 
@@ -109,8 +116,12 @@ int main(int argc, char **argv) {
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
 		printf("  Epoch %i\n", epoch);
+
+		for (i=0; i<TRAINING_SAMPLES; i++) sequence[i] = i;
+		shuffle(sequence, TRAINING_SAMPLES);
+
 		for (i=0; i<TRAINING_SAMPLES / BATCH_SIZE; i++) {
-			create_batch(batch, label, training_data, BATCH_SIZE, i);
+			create_batch(batch, label, training_data, sequence, BATCH_SIZE, i);
 			feed_forward(&nn, result, batch, label, 1, &count);
 			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0) {
 				int row, col;
@@ -127,7 +138,11 @@ int main(int argc, char **argv) {
 		int previous_count = 0;
 		printf("    Running tests...\n");
 		for (i=0; i<TEST_SAMPLES / BATCH_SIZE; i++) {
-			create_batch(batch, label, test_data, BATCH_SIZE, i);
+
+			for (j=0; j<TEST_SAMPLES; j++) sequence[j] = j;
+
+			create_batch(batch, label, test_data, sequence, BATCH_SIZE, i);
+
 			feed_forward(&nn, result, batch, label, 0, &count);
 			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0) {
 				int row, col;
@@ -166,15 +181,21 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-void create_batch(nn_type *batch, int *label, mnist_data *data, int batch_size, int iteration) {
+void create_batch(nn_type *batch,
+	                int *label,
+									mnist_data *data,
+									int *sequence,
+									int batch_size,
+									int iteration)
+{
 	int i, j;
 	int mod = batch_size * iteration;
 	int max = batch_size * (iteration + 1);
 	for (i=mod; i<max; i++) {
 		int offset = (iteration > 0) ? (i % mod) : i;
-		label[offset] = data[i].label;
+		label[offset] = data[sequence[i]].label;
 		for (j=0; j<DIM*DIM; j++) {
-			batch[(j*batch_size) + offset] = data[i].data[j];
+			batch[(j*batch_size) + offset] = data[sequence[i]].data[j];
 		}
 	}
 }
