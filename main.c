@@ -30,7 +30,14 @@ void create_batch(nn_type *batch,
 									int *sequence,
 									int batch_size,
 									int iteration);
-void print_result(int iter, int *label, nn_type *result, char *correct);
+void print_result(int iter,
+	                int *label, nn_type *result,
+									char *correct);
+void process_command_line(int argc, char **argv,
+                          int *number_of_hidden_layers,
+                          int *number_of_nodes_in_hidden_layers,
+                          int *batch_size,
+                          nn_type *learning_rate);
 int main(int argc, char **argv) {
 	mnist_data *training_data;
 	mnist_data *test_data;
@@ -93,38 +100,11 @@ int main(int argc, char **argv) {
 	int batch_size                       = BATCH_SIZE;
 	nn_type learning_rate                = LEARNING_RATE;
 
-	// process command-line arguments
-	char * pEnd;
-	for (i=1; i<argc; i++) {
-		char *str   = argv[i];
-		char *param = strtok(str, "=");
-		char *val   = strtok(NULL, "=");
-
-		if ((strcmp(param, "--hidden-layers") == 0) ||
-		    (strcmp(param, "--hl") == 0)) {
-			number_of_hidden_layers = (int)strtol( strtok(val, " ") , &pEnd , 10);
-		}
-		else if ((strcmp(param, "--hidden-nodes") == 0) ||
-		         (strcmp(param, "--hn") == 0)) {
-			number_of_nodes_in_hidden_layers = (int)strtol( strtok(val, " ") , &pEnd , 10);
-		}
-		else if ((strcmp(param, "--inputs") == 0) ||
-		         (strcmp(param, "--i") == 0)) {
-			number_of_inputs = (int)strtol( strtok(val, " ") , &pEnd , 10);
-		}
-		else if ((strcmp(param, "--outputs") == 0) ||
-		         (strcmp(param, "--o") == 0)) {
-			number_of_outputs = (int)strtol( strtok(val, " ") , &pEnd , 10);
-		}
-		else if ((strcmp(param, "--batch_size") == 0) ||
-		         (strcmp(param, "--bs") == 0)) {
-			batch_size = (int)strtol( strtok(val, " ") , &pEnd , 10);
-		}
-		else if ((strcmp(param, "--learning-rate") == 0) ||
-		         (strcmp(param, "--lr") == 0)) {
-			learning_rate = (nn_type)strtod( strtok(val, " ") , &pEnd);
-		}
-	}
+	process_command_line(argc, argv,
+		                   &number_of_hidden_layers,
+	                     &number_of_nodes_in_hidden_layers,
+										   &batch_size,
+										   &learning_rate);
 
 	printf("\nInitializing neural net:");
 	struct neural_net nn;
@@ -219,5 +199,36 @@ void print_result(int iter, int *label, nn_type *result, char *correct)
 			else                          printf(KNRM "%f  ", result[(row*BATCH_SIZE)+col]);
 		}
 		printf(KNRM "\n    ");
+	}
+}
+
+void process_command_line(int argc, char **argv,
+                          int *number_of_hidden_layers,
+                          int *number_of_nodes_in_hidden_layers,
+                          int *batch_size,
+                          nn_type *learning_rate)
+{
+	int i;
+	for (i=1; i<argc; i++) {
+		char *str   = argv[i];
+		char *param = strtok(str, "=");
+		char *val   = strtok(NULL, "=");
+
+		if ((strcmp(param, "--hidden-layers") == 0) ||
+				(strcmp(param, "--hl") == 0)) {
+			*number_of_hidden_layers = (int)strtol( strtok(val, " "), NULL, 10);
+		}
+		else if ((strcmp(param, "--hidden-nodes") == 0) ||
+						 (strcmp(param, "--hn") == 0)) {
+			*number_of_nodes_in_hidden_layers = (int)strtol( strtok(val, " "), NULL, 10);
+		}
+		else if ((strcmp(param, "--batch-size") == 0) ||
+						 (strcmp(param, "--bs") == 0)) {
+			*batch_size = (int)strtol( strtok(val, " "), NULL, 10);
+		}
+		else if ((strcmp(param, "--learning-rate") == 0) ||
+						 (strcmp(param, "--lr") == 0)) {
+			*learning_rate = (nn_type)strtod( strtok(val, " "), NULL);
+		}
 	}
 }
