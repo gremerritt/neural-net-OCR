@@ -10,11 +10,11 @@
 
 #define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 70
-#define NUM_HIDDEN_LAYERS 2
+#define NUM_NODES_IN_HIDDEN_LAYERS 30
+#define NUM_HIDDEN_LAYERS 1
 #define LEARNING_RATE 1.5
-#define BATCH_SIZE 2
-#define EPOCHS 20
+#define BATCH_SIZE 5
+#define EPOCHS 1000
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
 #define TRAINING_PRINT_RESULTS_EVERY 30000
@@ -60,8 +60,7 @@ int main(int argc, char **argv) {
 		printf("  Image count: %d\n", cnt);
 	}
 
-	int image_idx;
-	int i, j;
+	// int image_idx;
 // 	printf("label: %u \n", data[image].label);
 // 	printf("{");
 // 	for (i=0; i<28; i++)
@@ -126,6 +125,7 @@ int main(int argc, char **argv) {
 
 	int count = 0;
 	int epoch;
+	int i, j;
 
 	int *sequence  = malloc( TRAINING_SAMPLES * sizeof(int) );
 	nn_type *batch = malloc( DIM * DIM * BATCH_SIZE * sizeof(nn_type) );
@@ -147,7 +147,6 @@ int main(int argc, char **argv) {
 				print_result(i, label, result, correct);
 		}
 
-		int previous_count = 0;
 		printf("    Running tests...\n");
 		for (i=0; i<TEST_SAMPLES / BATCH_SIZE; i++) {
 			for (j=0; j<TEST_SAMPLES; j++) sequence[j] = j;

@@ -128,14 +128,11 @@ void feed_forward(struct neural_net *nn,
                   char *correct)
 {
   int i, j;
-  int row, col;
   int number_of_nodes_in_hidden_layers = (*nn).number_of_nodes_in_hidden_layers;
   int number_of_inputs                 = (*nn).number_of_inputs;
   int number_of_hidden_layers          = (*nn).number_of_hidden_layers;
   int number_of_outputs                = (*nn).number_of_outputs;
   int batch_size                       = (*nn).batch_size;
-  nn_type *tmp_activation              = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
-  nn_type *last_activation             = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
 
   //---------------------------------------------------------------------------
   // feed from input layer -> first hidden layer

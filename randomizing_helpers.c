@@ -3,8 +3,6 @@
 #include <math.h>
 
 int generate_random_int() {
-  int ret;
-
   // we're generating two random ints using the Rand() method, then putting
   // the high bits of one of them into the low bits of the other. The reason
   // for this is that the rand() function does a better job of generating
@@ -46,7 +44,8 @@ void generate_guassian_distribution(double *numbers, int size) {
 
 void shuffle(int *array, int size) {
   // shuffling with Knuth-Fisher-Yates algorithm
-  for (int i = size - 1; i > 0; i--) {
+  int i;
+  for (i = size - 1; i > 0; i--) {
     int n = generate_random_int() % (i+1);  // can swap with yourself
     if (i != n) {
       int tmp = array[i];
