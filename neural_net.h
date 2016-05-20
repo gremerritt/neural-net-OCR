@@ -46,7 +46,18 @@ struct neural_net {
     nn_type **delta;
 };
 
+struct change_matrices {
+  nn_type **bias_change;
+  nn_type **weight_change;
+};
+
+void duplicate_nn(struct neural_net *new_nn, struct neural_net *nn);
+void sync_nn(struct neural_net *target_nn, struct neural_net *source_nn);
 void destroy_nn(struct neural_net *nn);
+
+void initialize_change_matrices(struct change_matrices *cm, struct neural_net *nn);
+void get_changes(struct change_matrices *cm, struct neural_net *new_nn, struct neural_net *original_nn);
+void apply_changes(struct change_matrices *cm, struct neural_net *nn, int threads);
 
 void create_neural_net(struct neural_net *nn,
                        int number_of_hidden_layers,
@@ -67,8 +78,5 @@ void feed_forward(struct neural_net *nn,
 void backpropagate(struct neural_net *nn,
                    nn_type *activation_initial,
                    int *target_value);
-
-nn_type sigmoid(nn_type z);
-nn_type sigmoidPrime(nn_type z);
 
 #endif

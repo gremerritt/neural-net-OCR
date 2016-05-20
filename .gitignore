@@ -1,3 +1,4 @@
 *.o
 *-ubyte
+*.dSYM
 main

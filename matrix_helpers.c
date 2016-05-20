@@ -1,7 +1,8 @@
 #include <stdio.h>
+#include "matrix_helpers.h"
 #include "neural_net.h"
 
-void calculate_z_matrix(nn_type *z_matrix,
+inline void calculate_z_matrix(nn_type *z_matrix,
                         nn_type *weight,
                         nn_type *activation,
                         nn_type *bias,
@@ -9,8 +10,8 @@ void calculate_z_matrix(nn_type *z_matrix,
                         int weight_cols,
                         int activation_cols)
 {
-  // this is a boring simple matrix multiply
   int Act_col, W_row, W_col;
+
   for (Act_col=0; Act_col<activation_cols; Act_col++) {
     for (W_row=0; W_row<weight_rows; W_row++) {
       nn_type accum = 0.0;
@@ -24,42 +25,34 @@ void calculate_z_matrix(nn_type *z_matrix,
   }
 }
 
-void sigmoidify(nn_type *activation,
-                nn_type *z_vector,
-                int rows,
-                int cols)
+inline void sigmoidify(nn_type *activation,
+                       nn_type *z_matrix,
+                       int rows,
+                       int cols)
 {
-  int i;
-
-  // printf("\nz_vector:\n");
-  // for (i=0; i<dim; i++)
-  //   printf("%f\n", z_vector[i]);
-
-  for (i=0; i<rows*cols; i++) activation[i] = sigmoid(z_vector[i]);
-
-  // printf("\nactivation:\n");
-  // for (i=0; i<dim; i++)
-  //   printf("%f\n", activation[i]);
+  int i, size = rows*cols;
+  for (i=0; i<size; i++) activation[i] = sigmoid(z_matrix[i]);
 }
 
-void delta_output_layer(nn_type *delta,
+inline void delta_output_layer(nn_type *delta,
                         nn_type *activation,
                         nn_type *z_matrix,
                         int *target_value,
                         int outputs,
                         int batch_size)
 {
-  int row, col;
-  for (col=0; col<batch_size; col++) {
-    int target = target_value[col];
-    for (row=0; row<outputs; row++) {
-      int index = (row*batch_size) + col;
-      delta[index] = (activation[index] - ((row == target) ? 1.0 : 0.0)) * sigmoidPrime(z_matrix[index]);
+  int i, j, target, index;
+
+  for (i=0; i<batch_size; i++) {
+    target = target_value[i];
+    for (j=0; j<outputs; j++) {
+      index = (j*batch_size) + i;
+      delta[index] = (activation[index] - ((j == target) ? 1.0 : 0.0)) * sigmoidPrime(z_matrix[index]);
     }
   }
 }
 
-void delta_hidden_layers(nn_type *delta,
+inline void delta_hidden_layers(nn_type *delta,
                          nn_type *weight_downstream,
                          nn_type *delta_downstream,
                          nn_type *z_matrix,
@@ -68,25 +61,6 @@ void delta_hidden_layers(nn_type *delta,
                          int batch_size)
 {
   int weight_row, weight_col, delta_col;
-
-  // int row, col;
-  // printf("\n\nWeight downstream:\n");
-  // printf("[");
-  // for (row=0; row<weight_rows; row++) {
-  //   for (col=0; col<weight_cols; col++)
-  //     printf("%f ", weight_downstream[(row*weight_cols) + col]);
-  //   if (row==weight_rows-1) printf("]");
-  //   else printf(";\n");
-  // }
-  // //
-  // printf("\n\nDelta downstream:\n");
-  // printf("[");
-  // for (row=0; row<weight_rows; row++) {
-  //   for (col=0; col<batch_size; col++)
-  //     printf("%f ", delta_downstream[(row*batch_size) + col]);
-  //   if (row==weight_rows-1) printf("]");
-  //   else printf(";\n");
-  // }
 
   for (delta_col=0; delta_col<batch_size; delta_col++) {
     for (weight_col=0; weight_col<weight_cols; weight_col++) {
@@ -99,18 +73,9 @@ void delta_hidden_layers(nn_type *delta,
       delta[(weight_col*batch_size)+delta_col] = accum;
     }
   }
-
-  // printf("\n\nDelta:\n");
-  // printf("[");
-  // for (row=0; row<weight_cols; row++) {
-  //   for (col=0; col<batch_size; col++)
-  //     printf("%f ", delta[(row*batch_size) + col]);
-  //   if (row==weight_rows-1) printf("]");
-  //   else printf(";\n");
-  // }
 }
 
-void adjust_weight(nn_type *activation,
+inline void adjust_weight(nn_type *activation,
                    nn_type *weight,
                    nn_type *delta,
                    int weight_rows,
@@ -118,93 +83,49 @@ void adjust_weight(nn_type *activation,
                    int batch_size,
                    nn_type eta)
 {
-  int row, col, batch;
+  int i, j, k;
+  nn_type accum;
+  double scale = eta / batch_size;
 
-  // printf("\n\nWeight:\n");
-  // printf("[");
-  // for (row=0; row<weight_rows; row++) {
-  //   for (col=0; col<weight_cols; col++)
-  //     printf("%f ", weight[(row*weight_cols) + col]);
-  //   if (row==weight_rows-1) printf("]");
-  //   else printf(";\n");
-  // }
-  //
-  // printf("\n\nActivation:\n");
-  // printf("[");
-  // for (row=0; row<weight_cols; row++) {
-  //   for (col=0; col<batch_size; col++)
-  //     printf("%f ", activation[(row*batch_size) + col]);
-  //   if (row==weight_cols-1) printf("]");
-  //   else printf(";\n");
-  // }
-  //
-  // printf("\n\nDelta:\n");
-  // printf("[");
-  // for (row=0; row<weight_rows; row++) {
-  //   for (col=0; col<batch_size; col++)
-  //     printf("%f ", delta[(row*batch_size) + col]);
-  //   if (row==weight_rows-1) printf("]");
-  //   else printf(";\n");
-  // }
-
-  for (row=0; row<weight_rows; row++) {
-    int offset = row*weight_cols;
-    for (col=0; col<weight_cols; col++) {
-      nn_type accum = 0.0;
-      int activation_offset = col*batch_size;
-      int delta_offset = row*batch_size;
-      for(batch=0; batch<batch_size; batch++) {
-        accum += activation[activation_offset + batch] * delta[delta_offset + batch];
+  for (i=0; i<weight_rows; i++) {
+    int offset = i*weight_cols;
+    for (j=0; j<weight_cols; j++) {
+      accum = 0.0;
+      int activation_offset = j*batch_size;
+      int delta_offset = i*batch_size;
+      for(k=0; k<batch_size; k++) {
+        accum += activation[activation_offset + k] * delta[delta_offset + k];
       }
-      weight[offset + col] -= (eta / batch_size) * accum;
+      weight[offset + j] -= scale * accum;
     }
   }
-
-  // printf("\n\nWeight:\n");
-  // printf("[");
-  // for (row=0; row<weight_rows; row++) {
-  //   for (col=0; col<weight_cols; col++)
-  //     printf("%f ", weight[(row*weight_cols) + col]);
-  //   if (row==weight_rows-1) printf("]");
-  //   else printf(";\n");
-  // }
 }
 
-void adjust_bias(nn_type *bias,
+inline void adjust_bias(nn_type *bias,
                  nn_type *delta,
                  int dim,
                  int batch_size,
                  nn_type eta)
 {
-  int i, batch;
-
-  // printf("\n\nBias:\n");
-  // printf("[");
-  // for (i=0; i<dim; i++) {
-  //   if (i==dim-1) printf("%f]", bias[i]);
-  //   else printf("%f;\n", bias[i]);
-  // }
-  //
-  // printf("\n\nDelta:\n");
-  // printf("[");
-  // for (i=0; i<dim; i++) {
-  //   if (i==dim-1) printf("%f]", delta[i]);
-  //   else printf("%f;\n", delta[i]);
-  // }
+  int i, j, offset;
+  double scale = eta / batch_size;
+  nn_type accum;
 
   for (i=0; i<dim; i++) {
-    nn_type accum = 0.0;
-    int offset = i*batch_size;
-    for (batch=0; batch<batch_size; batch++) {
-      accum += delta[offset + batch];
+    accum = 0.0;
+    offset = i*batch_size;
+    for (j=0; j<batch_size; j++) {
+      accum += delta[offset + j];
     }
-    bias[i] -= (eta / batch_size) * accum;
+    bias[i] -= scale * accum;
   }
+}
 
-  // printf("\n\nBias:\n");
-  // printf("[");
-  // for (i=0; i<dim; i++) {
-  //   if (i==dim-1) printf("%f]\n\n", bias[i]);
-  //   else printf("%f;\n", bias[i]);
-  // }
+inline nn_type sigmoid(nn_type z) {
+  return 1.0 / (1.0 + exp(-z));
+}
+
+inline nn_type sigmoidPrime(nn_type z) {
+  nn_type exponential = exp(z);
+  return exponential / pow(exponential + 1, 2);
 }

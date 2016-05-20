@@ -4,32 +4,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "mnist.h"
 #include "neural_net.h"
 #include "randomizing_helpers.h"
+#include "matrix_helpers.h"
+#include <omp.h>
 
 #define DIM 28
 #define NUM_OUTPUTS 10
-#define NUM_NODES_IN_HIDDEN_LAYERS 30
-#define NUM_HIDDEN_LAYERS 1
+#define NUM_NODES_IN_HIDDEN_LAYERS 60
+#define NUM_HIDDEN_LAYERS 2
 #define LEARNING_RATE 1.5
 #define BATCH_SIZE 5
-#define EPOCHS 1000
+#define EPOCHS 25
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
-#define TRAINING_PRINT_RESULTS_EVERY 30000
-#define TEST_PRINT_RESULTS_EVERY 500
+#define TRAINING_PRINT_RESULTS_EVERY 60000
+#define TEST_PRINT_RESULTS_EVERY 10000
+#define OMP_NUM_THREADS_TRAINING 4
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
 #define KGRN  "\x1B[32m"
 
-void create_batch(nn_type *batch,
-	                int *label,
-									mnist_data *data,
-									int *sequence,
-									int batch_size,
-									int iteration);
+void create_batch_with_sequence(nn_type *batch,
+	                              int *label,
+									              mnist_data *data,
+									              int batch_size,
+									              int iteration,
+								                int *sequence);
+void create_batch_no_sequence(nn_type *batch,
+	                            int *label,
+									            mnist_data *data,
+									            int batch_size,
+									            int iteration);
 void print_result(int iter,
 	                int *label, nn_type *result,
 									char *correct);
@@ -43,10 +52,23 @@ int main(int argc, char **argv) {
 	mnist_data *test_data;
 	unsigned int cnt;
 	int ret;
+	double epoch_t1, epoch_t2, epoch_duration;
+	double training_t1, training_t2, training_duration;
+	double syncing_t1, syncing_t2, syncing_duration;
+	double testing_t1, testing_t2, testing_duration;
+	int counts[EPOCHS];
+	double epoch_times[EPOCHS];
+	double training_times[EPOCHS];
+	double syncing_times[EPOCHS];
+	double testing_times[EPOCHS];
 
 	printf("Loading training image set... ");
 	ret = mnist_load("train-images-idx3-ubyte", "train-labels-idx1-ubyte", &training_data, &cnt);
-	if (ret) printf("An error occured: %d\n", ret);
+	if (ret) {
+		printf("An error occured: %d\n", ret);
+		printf("Make sure image files (*-ubyte) are in the current directory.\n");
+		return 0;
+	}
 	else {
 		printf("Success!\n");
 		printf("  Image count: %d\n", cnt);
@@ -54,44 +76,16 @@ int main(int argc, char **argv) {
 
 	printf("\nLoading test image set... ");
 	ret = mnist_load("t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte", &test_data, &cnt);
-	if (ret) printf("An error occured: %d\n", ret);
+	if (ret) {
+		printf("An error occured: %d\n", ret);
+		printf("Make sure image files (*-ubyte) are in the current directory.\n");
+		return 0;
+	}
 	else {
 		printf("Success!\n");
 		printf("  Image count: %d\n", cnt);
 	}
 
-	// int image_idx;
-// 	printf("label: %u \n", data[image].label);
-// 	printf("{");
-// 	for (i=0; i<28; i++)
-// 	{
-// 		printf("{");
-// 		for (j=0; j<28; j++)
-// 		{
-// 			//mnist_data d = *(*data)[0];
-// 			if (j<27) printf("%f,", 1.0-data[image].data[i][j]);
-// 			else printf("%f", 1.0-data[image].data[i][j]);
-// 		}
-// 		if (i<27) printf("},");
-// 		else printf("}");
-// 	}
-// 	printf("}\n");
-
-	// for (image_idx=1000; image_idx<1001; image_idx++)
-	// {
-	// 	printf("\n\n\nlabel with: %u \n", data[image_idx].label);
-	// 	for (i=0; i<28; i++)
-	// 	{
-	// 		for (j=0; j<28; j++)
-	// 		{
-	// 			if (data[image_idx].data[28*i + j] > 0.0100) printf("%i", data[image_idx].label);
-	// 			else printf(".");
-	// 		}
-	// 		printf("\n");
-	// 	}
-	// }
-
-	nn_type result[NUM_OUTPUTS*BATCH_SIZE];
 	int number_of_hidden_layers          = NUM_HIDDEN_LAYERS;
 	int number_of_nodes_in_hidden_layers = NUM_NODES_IN_HIDDEN_LAYERS;
 	int number_of_inputs                 = DIM*DIM;
@@ -106,72 +100,143 @@ int main(int argc, char **argv) {
 										   &learning_rate);
 
 	printf("\nInitializing neural net:");
-	struct neural_net nn;
-	create_neural_net(&nn, number_of_hidden_layers,
-                         number_of_nodes_in_hidden_layers,
-                         number_of_inputs,
-                         number_of_outputs,
-                         batch_size,
-                         learning_rate);
+	struct neural_net neural_nets[OMP_NUM_THREADS_TRAINING+1];
+	create_neural_net(&(neural_nets[0]), number_of_hidden_layers,						// nn[0] is master
+                             number_of_nodes_in_hidden_layers,
+                             number_of_inputs,
+                             number_of_outputs,
+                             batch_size,
+                             learning_rate);
+	int k;
+	for (k=1; k<OMP_NUM_THREADS_TRAINING+1; k++) duplicate_nn(&(neural_nets[k]), &(neural_nets[0]));
 
-	printf("\n  Total Layers:           %i", nn.number_of_hidden_layers+2);
-	printf("\n  Hidden Layers:          %i", nn.number_of_hidden_layers);
-	printf("\n  Inputs:                 %i", nn.number_of_inputs);
-	printf("\n  Outputs:                %i", nn.number_of_outputs);
-	printf("\n  Nodes in Hidden Layers: %i", nn.number_of_nodes_in_hidden_layers);
-	printf("\n  Batch Size:             %i", nn.batch_size);
-	printf("\n  Learning Rate:          %f", nn.eta);
+	printf("\n  Total Layers:           %i", neural_nets[0].number_of_hidden_layers+2);
+	printf("\n  Hidden Layers:          %i", neural_nets[0].number_of_hidden_layers);
+	printf("\n  Inputs:                 %i", neural_nets[0].number_of_inputs);
+	printf("\n  Outputs:                %i", neural_nets[0].number_of_outputs);
+	printf("\n  Nodes in Hidden Layers: %i", neural_nets[0].number_of_nodes_in_hidden_layers);
+	printf("\n  Batch Size:             %i", neural_nets[0].batch_size);
+	printf("\n  Learning Rate:          %f", neural_nets[0].eta);
 	printf("\n------------------\n");
 
 	int count = 0;
 	int epoch;
-	int i, j;
+	int i;
+	int tid;
 
 	int *sequence  = malloc( TRAINING_SAMPLES * sizeof(int) );
-	nn_type *batch = malloc( DIM * DIM * BATCH_SIZE * sizeof(nn_type) );
-	int *label     = malloc( BATCH_SIZE * sizeof(int) );
-	char *correct  = malloc( BATCH_SIZE * sizeof(char) );
 
 	// TRAINING
+	omp_set_dynamic(0);
 	printf("\nTraining...\n");
 	for (epoch=0; epoch<EPOCHS; epoch++) {
 		printf("\n  Epoch %i\n", epoch);
+		epoch_t1 = omp_get_wtime();
 
+		#pragma omp parallel for shared(sequence) private(i)
 		for (i=0; i<TRAINING_SAMPLES; i++) sequence[i] = i;
+
 		shuffle(sequence, TRAINING_SAMPLES);
 
+		training_t1 = omp_get_wtime();
+		#pragma omp parallel for shared(sequence, training_data, neural_nets) \
+		                         private(i, tid) \
+														 reduction(+:count) \
+														 num_threads(OMP_NUM_THREADS_TRAINING)
 		for (i=0; i<TRAINING_SAMPLES / BATCH_SIZE; i++) {
-			create_batch(batch, label, training_data, sequence, BATCH_SIZE, i);
-			feed_forward(&nn, result, batch, label, 1, &count, correct);
-			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0)
+			tid = omp_get_thread_num();
+
+			nn_type result [NUM_OUTPUTS * BATCH_SIZE];
+			nn_type batch  [DIM * DIM * BATCH_SIZE];
+			int     label  [BATCH_SIZE];
+			char    correct[BATCH_SIZE];
+
+			create_batch_with_sequence(batch, label, training_data, BATCH_SIZE, i, sequence);
+			feed_forward(&(neural_nets[tid+1]), result, batch, label, 1, &count, correct);
+			if (i%TRAINING_PRINT_RESULTS_EVERY == 0 && i != 0) {
+				// there's a bug with printing from multithreaded run...
 				print_result(i, label, result, correct);
+			}
 		}
+		training_t2 = omp_get_wtime();
+		training_duration = (training_t2 - training_t1);
+
+		// determine weight change matrix
+		syncing_t1 = omp_get_wtime();
+		struct change_matrices cm;
+		initialize_change_matrices(&cm, &(neural_nets[0]));
+		for (i=1; i<OMP_NUM_THREADS_TRAINING+1; i++) {
+			get_changes(&cm, &(neural_nets[i]), &(neural_nets[0]));
+		}
+		apply_changes(&cm, &(neural_nets[0]), OMP_NUM_THREADS_TRAINING);
+		for (i=1; i<OMP_NUM_THREADS_TRAINING+1; i++) {
+			sync_nn(&(neural_nets[i]), &(neural_nets[0]));
+		}
+		syncing_t2 = omp_get_wtime();
+		syncing_duration = (syncing_t2 - syncing_t1);
 
 		printf("    Running tests...\n");
+		testing_t1 = omp_get_wtime();
+		#pragma omp parallel for shared(test_data, neural_nets) \
+		                         private(i, tid) \
+														 reduction(+:count) \
+														 num_threads(OMP_NUM_THREADS_TRAINING)
 		for (i=0; i<TEST_SAMPLES / BATCH_SIZE; i++) {
-			for (j=0; j<TEST_SAMPLES; j++) sequence[j] = j;
-			create_batch(batch, label, test_data, sequence, BATCH_SIZE, i);
-			feed_forward(&nn, result, batch, label, 0, &count, correct);
-			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0)
+			tid = omp_get_thread_num();
+
+			nn_type result [NUM_OUTPUTS * BATCH_SIZE];
+			nn_type batch  [DIM * DIM * BATCH_SIZE];
+			int     label  [BATCH_SIZE];
+			char    correct[BATCH_SIZE];
+
+			create_batch_no_sequence(batch, label, test_data, BATCH_SIZE, i);
+			feed_forward(&(neural_nets[tid+1]), result, batch, label, 0, &count, correct);
+			if (i%TEST_PRINT_RESULTS_EVERY == 0 && i != 0) {
+				// there's a bug with printing from multithreaded run...
 				print_result(i, label, result, correct);
+			}
 		}
-		printf("\n      Count: %i\n", count);
+		testing_t2 = omp_get_wtime();
+		testing_duration = (testing_t2 - testing_t1);
+
+		epoch_t2 = omp_get_wtime();
+		epoch_duration = (epoch_t2 - epoch_t1);
+	  printf("\n      Epoch Duration:    %f\n", epoch_duration);
+		printf("      Training Duration: %f\n", training_duration);
+		printf("      Syncing Duration:  %f\n", syncing_duration);
+		printf("      Testing Duration:  %f\n", testing_duration);
+		printf("      Count: %i\n", count);
+		epoch_times[epoch]    = epoch_duration;
+		training_times[epoch] = training_duration;
+		syncing_times[epoch]  = syncing_duration;
+		testing_times[epoch]  = testing_duration;
+		counts[epoch]         = count;
 		count = 0;
 	}
 
-	destroy_nn(&nn);
+	printf("Count, Epoch Time (s), Training Time (s), Syncing Time (s), Testing Time (s)\n");
+	for (epoch=0; epoch<EPOCHS; epoch++)
+	{
+		printf("%i, %f, %f, %f, %f\n", counts[epoch],
+		                               epoch_times[epoch],
+															     training_times[epoch],
+																	 syncing_times[epoch],
+															     testing_times[epoch]);
+	}
+
+	// destroy_nn(&nn);
 	free(training_data);
 	free(test_data);
 
 	return 0;
 }
 
-void create_batch(nn_type *batch,
-	                int *label,
-									mnist_data *data,
-									int *sequence,
-									int batch_size,
-									int iteration)
+void create_batch_with_sequence(nn_type *batch,
+	                              int *label,
+									              mnist_data *data,
+									              int batch_size,
+									              int iteration,
+								                int *sequence)
 {
 	int i, j;
 	int mod = batch_size * iteration;
@@ -181,6 +246,24 @@ void create_batch(nn_type *batch,
 		label[offset] = data[sequence[i]].label;
 		for (j=0; j<DIM*DIM; j++) {
 			batch[(j*batch_size) + offset] = data[sequence[i]].data[j];
+		}
+	}
+}
+
+void create_batch_no_sequence(nn_type *batch,
+	                            int *label,
+									            mnist_data *data,
+									            int batch_size,
+									            int iteration)
+{
+	int i, j;
+	int mod = batch_size * iteration;
+	int max = batch_size * (iteration + 1);
+	for (i=mod; i<max; i++) {
+		int offset = (iteration > 0) ? (i % mod) : i;
+		label[offset] = data[i].label;
+		for (j=0; j<DIM*DIM; j++) {
+			batch[(j*batch_size) + offset] = data[i].data[j];
 		}
 	}
 }

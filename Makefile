@@ -1,45 +1,27 @@
-CC= gcc
-NVCC= nvcc
-CFLAGS= -Wall -g
-CUDAFLAGS= -g
+CC= gcc-4.9
+CFLAGS= -Wall -g -O3
 OPENMPFLAG= -fopenmp
-LIBS= -lrt -lm
+LIBS=
+UNAME = $(shell uname)
+ifneq ($(UNAME),Darwin)
+  LIBS += -lrt -lm
+endif
+EXEC = main
 
 main: main.o neural_net.o matrix_helpers.o randomizing_helpers.o
-	$(CC) $(CFLAGS) main.o neural_net.o matrix_helpers.o randomizing_helpers.o -o main $(LIBS)
+	$(CC) $(CFLAGS) $(OPENMPFLAG) main.o neural_net.o matrix_helpers.o randomizing_helpers.o -o $(EXEC) $(LIBS)
 
-osx: neural_net_osx.o matrix_helpers_osx.o randomizing_helpers_osx.o
-	$(CC) $(CFLAGS) main.c neural_net_osx.o matrix_helpers_osx.o randomizing_helpers_osx.o -o main
-
-cuda: neural_net_cuda.o matrix_helpers_cuda.o randomizing_helpers_cuda.o
-	$(NVCC) $(CUDAFLAGS) main.c neural_net_cuda.o matrix_helpers_cuda.o randomizing_helpers_cuda.o -o main
+main.o: main.c
+	$(CC) $(CFLAGS) $(OPENMPFLAG) -c main.c $(LIBS)
 
 neural_net.o: neural_net.c neural_net.h
-	$(CC) $(CFLAGS) -c neural_net.c $(LIBS)
+	$(CC) $(CFLAGS) $(OPENMPFLAG) -c neural_net.c $(LIBS)
 
 matrix_helpers.o: matrix_helpers.c matrix_helpers.h
-	$(CC) $(CFLAGS) -c matrix_helpers.c -O3 $(LIBS)
+	$(CC) $(CFLAGS) $(OPENMPFLAG) -c matrix_helpers.c $(LIBS)
 
 randomizing_helpers.o: randomizing_helpers.c randomizing_helpers.c
-	$(CC) $(CFLAGS) -c randomizing_helpers.c $(LIBS)
-
-neural_net_osx.o: neural_net.c neural_net.h
-	$(CC) $(CFLAGS) -c neural_net.c -o neural_net_osx.o
-
-matrix_helpers_osx.o: matrix_helpers.c matrix_helpers.h
-	$(CC) $(CFLAGS) -c matrix_helpers.c -O3 -o matrix_helpers_osx.o
-
-randomizing_helpers_osx.o: randomizing_helpers.c randomizing_helpers.c
-	$(CC) $(CFLAGS) -c randomizing_helpers.c -o randomizing_helpers_osx.o
-
-neural_net_cuda.o: neural_net.c neural_net.h
-	$(NVCC) $(CUDAFLAGS) -c neural_net.c -o neural_net_cuda.o
-
-matrix_helpers_cuda.o: matrix_helpers.c matrix_helpers.h
-	$(NVCC) $(CUDAFLAGS) -c matrix_helpers.c -O3 -o matrix_helpers_cuda.o
-
-randomizing_helpers_cuda.o: randomizing_helpers.c randomizing_helpers.c
-	$(NVCC) $(CUDAFLAGS) -c randomizing_helpers.c -o randomizing_helpers_cuda.o
+	$(CC) $(CFLAGS) $(OPENMPFLAG) -c randomizing_helpers.c $(LIBS)
 
 clean:
-	rm *.o main
+	rm *.o $(EXEC)

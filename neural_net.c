@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <omp.h>
 #include "neural_net.h"
 #include "matrix_helpers.h"
 #include "randomizing_helpers.h"
@@ -88,6 +89,114 @@ void create_neural_net(struct neural_net *nn,
   free(random);
 }
 
+void duplicate_nn(struct neural_net *new_nn, struct neural_net *nn)
+{
+  int i, j;
+  int number_of_hidden_layers          = (*nn).number_of_hidden_layers;
+  int number_of_nodes_in_hidden_layers = (*nn).number_of_nodes_in_hidden_layers;
+  int number_of_inputs                 = (*nn).number_of_inputs;
+  int number_of_outputs                = (*nn).number_of_outputs;
+  int batch_size                       = (*nn).batch_size;
+
+  (*new_nn).number_of_hidden_layers          = number_of_hidden_layers;
+  (*new_nn).number_of_nodes_in_hidden_layers = number_of_nodes_in_hidden_layers;
+  (*new_nn).number_of_inputs                 = number_of_inputs;
+  (*new_nn).number_of_outputs                = number_of_outputs;
+  (*new_nn).batch_size                       = batch_size;
+  (*new_nn).eta                              = (*nn).eta;
+
+  (*new_nn).bias       = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  (*new_nn).z_matrix   = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  (*new_nn).activation = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  (*new_nn).delta      = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+
+  // this loop does the hidden layers
+  for (i=0; i<number_of_hidden_layers; i++) {
+    (*new_nn).bias[i]       = (nn_type *)malloc( number_of_nodes_in_hidden_layers * sizeof( nn_type ) );
+    (*new_nn).delta[i]      = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
+    (*new_nn).z_matrix[i]   = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
+    (*new_nn).activation[i] = (nn_type *)malloc( number_of_nodes_in_hidden_layers * batch_size * sizeof( nn_type ) );
+    for (j=0; j<number_of_nodes_in_hidden_layers; j++)
+      (*new_nn).bias[i][j] = (*nn).bias[i][j];
+  }
+  //
+  // this does the output layer
+  (*new_nn).bias[number_of_hidden_layers]       = (nn_type *)malloc( number_of_outputs * sizeof( nn_type ) );
+  (*new_nn).delta[number_of_hidden_layers]      = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
+  (*new_nn).z_matrix[number_of_hidden_layers]   = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
+  (*new_nn).activation[number_of_hidden_layers] = (nn_type *)malloc( number_of_outputs * batch_size * sizeof( nn_type ) );
+  for (i=0; i<number_of_outputs; i++)
+    (*new_nn).bias[number_of_hidden_layers][i] = (*nn).bias[number_of_hidden_layers][i];
+  //---------------------------------------------------------------------------
+
+  //---------------------------------------------------------------------------
+  // allocate space for our 'weight' array and initialize it
+  (*new_nn).weight = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  //
+  // this does the first hidden layer to the input layer
+  int number_of_matrix_elements = number_of_inputs * number_of_nodes_in_hidden_layers;
+  (*new_nn).weight[0] = (nn_type *)malloc( number_of_matrix_elements * sizeof( nn_type ) );
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*new_nn).weight[0][i] = (*nn).weight[0][i];
+  //
+  // this does all the hidden layers
+  number_of_matrix_elements = number_of_nodes_in_hidden_layers * number_of_nodes_in_hidden_layers;
+  for (i=1; i<number_of_hidden_layers; i++) {
+    (*new_nn).weight[i] = (nn_type *)malloc( number_of_matrix_elements * sizeof( nn_type ) );
+    for (j=0; j<number_of_matrix_elements; j++)
+      (*new_nn).weight[i][j] = (*nn).weight[i][j];
+  }
+  //
+  // this does the output layer to the last hidden layer
+  number_of_matrix_elements = number_of_outputs * number_of_nodes_in_hidden_layers;
+  (*new_nn).weight[number_of_hidden_layers] = (nn_type *)malloc( number_of_matrix_elements * sizeof( nn_type ) );
+  for (j=0; j<number_of_matrix_elements; j++)
+    (*new_nn).weight[number_of_hidden_layers][j] = (*nn).weight[number_of_hidden_layers][j];
+  //---------------------------------------------------------------------------
+}
+
+void sync_nn(struct neural_net *target_nn, struct neural_net *source_nn)
+{
+  int i, j;
+  int number_of_hidden_layers          = (*source_nn).number_of_hidden_layers;
+  int number_of_nodes_in_hidden_layers = (*source_nn).number_of_nodes_in_hidden_layers;
+  int number_of_inputs                 = (*source_nn).number_of_inputs;
+  int number_of_outputs                = (*source_nn).number_of_outputs;
+
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_nodes_in_hidden_layers, target_nn, source_nn) \
+                           private(i, j)
+  for (i=0; i<number_of_hidden_layers; i++) {
+    for (j=0; j<number_of_nodes_in_hidden_layers; j++)
+      (*target_nn).bias[i][j] = (*source_nn).bias[i][j];
+  }
+  #pragma omp parallel for shared(number_of_outputs, number_of_hidden_layers, target_nn, source_nn) \
+                           private(i)
+  for (i=0; i<number_of_outputs; i++)
+    (*target_nn).bias[number_of_hidden_layers][i] = (*source_nn).bias[number_of_hidden_layers][i];
+
+  int number_of_matrix_elements = number_of_inputs * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_matrix_elements, target_nn, source_nn) \
+                           private(i)
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*target_nn).weight[0][i] = (*source_nn).weight[0][i];
+  //
+  // this does all the hidden layers
+  number_of_matrix_elements = number_of_nodes_in_hidden_layers * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_matrix_elements, target_nn, source_nn) \
+                           private(i, j)
+  for (i=1; i<number_of_hidden_layers; i++) {
+    for (j=0; j<number_of_matrix_elements; j++)
+      (*target_nn).weight[i][j] = (*source_nn).weight[i][j];
+  }
+  //
+  // this does the output layer to the last hidden layer
+  number_of_matrix_elements = number_of_outputs * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_matrix_elements, number_of_hidden_layers, target_nn, source_nn) \
+                           private(i)
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*target_nn).weight[number_of_hidden_layers][i] = (*source_nn).weight[number_of_hidden_layers][i];
+}
+
 void destroy_nn(struct neural_net *nn)
 {
   int i;
@@ -117,6 +226,132 @@ void destroy_nn(struct neural_net *nn)
   for (i=0; i<number_of_hidden_layers + 1; i++)
     free((*nn).delta[i]);
   free ((*nn).delta);
+}
+
+void initialize_change_matrices(struct change_matrices *cm, struct neural_net *nn)
+{
+  int i;
+  int number_of_hidden_layers          = (*nn).number_of_hidden_layers;
+  int number_of_nodes_in_hidden_layers = (*nn).number_of_nodes_in_hidden_layers;
+  int number_of_inputs                 = (*nn).number_of_inputs;
+  int number_of_outputs                = (*nn).number_of_outputs;
+
+  (*cm).bias_change = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  //
+  // this loop does the hidden layers
+  for (i=0; i<number_of_hidden_layers; i++) {
+    (*cm).bias_change[i] = (nn_type *)calloc( number_of_nodes_in_hidden_layers, sizeof( nn_type ) );
+  }
+  //
+  // this does the output layer
+  (*cm).bias_change[number_of_hidden_layers] = (nn_type *)calloc( number_of_outputs, sizeof( nn_type ) );
+  //---------------------------------------------------------------------------
+
+  //---------------------------------------------------------------------------
+  // allocate space for our 'weight' array and initialize it
+  (*cm).weight_change = malloc( (number_of_hidden_layers+1) * sizeof( nn_type* ) );
+  //
+  // this does the first hidden layer to the input layer
+  int number_of_matrix_elements = number_of_inputs * number_of_nodes_in_hidden_layers;
+  (*cm).weight_change[0] = (nn_type *)calloc( number_of_matrix_elements, sizeof( nn_type ) );
+  //
+  // this does all the hidden layers
+  number_of_matrix_elements = number_of_nodes_in_hidden_layers * number_of_nodes_in_hidden_layers;
+  for (i=1; i<number_of_hidden_layers; i++) {
+    (*cm).weight_change[i] = (nn_type *)calloc( number_of_matrix_elements, sizeof( nn_type ) );
+  }
+  //
+  // this does the output layer to the last hidden layer
+  number_of_matrix_elements = number_of_outputs * number_of_nodes_in_hidden_layers;
+  (*cm).weight_change[number_of_hidden_layers] = (nn_type *)calloc( number_of_matrix_elements, sizeof( nn_type ) );
+  //---------------------------------------------------------------------------
+}
+
+void get_changes(struct change_matrices *cm, struct neural_net *new_nn, struct neural_net *original_nn)
+{
+  int i, j;
+  int number_of_hidden_layers          = (*original_nn).number_of_hidden_layers;
+  int number_of_nodes_in_hidden_layers = (*original_nn).number_of_nodes_in_hidden_layers;
+  int number_of_inputs                 = (*original_nn).number_of_inputs;
+  int number_of_outputs                = (*original_nn).number_of_outputs;
+
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_nodes_in_hidden_layers, cm, new_nn, original_nn) \
+                           private(i, j)
+  for (i=0; i<number_of_hidden_layers; i++) {
+    for (j=0; j<number_of_nodes_in_hidden_layers; j++)
+      (*cm).bias_change[i][j] += (*new_nn).bias[i][j] - (*original_nn).bias[i][j];
+  }
+  #pragma omp parallel for shared(number_of_outputs, number_of_hidden_layers, cm, new_nn, original_nn) \
+                           private(i)
+  for (i=0; i<number_of_outputs; i++)
+    (*cm).bias_change[number_of_hidden_layers][i] += (*new_nn).bias[number_of_hidden_layers][i] -
+                                                     (*original_nn).bias[number_of_hidden_layers][i];
+
+  int number_of_matrix_elements = number_of_inputs * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_matrix_elements, cm, new_nn, original_nn) \
+                           private(i)
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*cm).weight_change[0][i] += (*new_nn).weight[0][i] - (*original_nn).weight[0][i];
+  //
+  // this does all the hidden layers
+  number_of_matrix_elements = number_of_nodes_in_hidden_layers * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_matrix_elements, cm, new_nn, original_nn) \
+                           private(i, j)
+  for (i=1; i<number_of_hidden_layers; i++) {
+    for (j=0; j<number_of_matrix_elements; j++)
+      (*cm).weight_change[i][j] += (*new_nn).weight[i][j] - (*original_nn).weight[i][j];
+  }
+  //
+  // this does the output layer to the last hidden layer
+  number_of_matrix_elements = number_of_outputs * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_matrix_elements, cm, new_nn, original_nn) \
+                           private(i, j)
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*cm).weight_change[number_of_hidden_layers][i] += (*new_nn).weight[number_of_hidden_layers][i] -
+                                                      (*original_nn).weight[number_of_hidden_layers][i];
+}
+
+void apply_changes(struct change_matrices *cm, struct neural_net *nn, int threads)
+{
+  int i, j;
+  int number_of_hidden_layers          = (*nn).number_of_hidden_layers;
+  int number_of_nodes_in_hidden_layers = (*nn).number_of_nodes_in_hidden_layers;
+  int number_of_inputs                 = (*nn).number_of_inputs;
+  int number_of_outputs                = (*nn).number_of_outputs;
+  double dividor = (double)threads;
+
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_nodes_in_hidden_layers, cm, nn) \
+                           private(i, j)
+  for (i=0; i<number_of_hidden_layers; i++) {
+    for (j=0; j<number_of_nodes_in_hidden_layers; j++)
+      (*nn).bias[i][j] += (*cm).bias_change[i][j] / dividor;
+  }
+  #pragma omp parallel for shared(number_of_outputs, number_of_hidden_layers, cm, nn) \
+                           private(i)
+  for (i=0; i<number_of_outputs; i++)
+    (*nn).bias[number_of_hidden_layers][i] += (*cm).bias_change[number_of_hidden_layers][i] / dividor;
+
+  int number_of_matrix_elements = number_of_inputs * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_matrix_elements, cm, nn) \
+                           private(i)
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*nn).weight[0][i] += (*cm).weight_change[0][i] / dividor;
+  //
+  // this does all the hidden layers
+  number_of_matrix_elements = number_of_nodes_in_hidden_layers * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_hidden_layers, number_of_matrix_elements, cm, nn) \
+                           private(i, j)
+  for (i=1; i<number_of_hidden_layers; i++) {
+    for (j=0; j<number_of_matrix_elements; j++)
+      (*nn).weight[i][j] += (*cm).weight_change[i][j] / dividor;
+  }
+  //
+  // this does the output layer to the last hidden layer
+  number_of_matrix_elements = number_of_outputs * number_of_nodes_in_hidden_layers;
+  #pragma omp parallel for shared(number_of_matrix_elements, number_of_hidden_layers, cm, nn) \
+                           private(i, j)
+  for (i=0; i<number_of_matrix_elements; i++)
+    (*nn).weight[number_of_hidden_layers][i] += (*cm).weight_change[number_of_hidden_layers][i] / dividor;
 }
 
 void feed_forward(struct neural_net *nn,
@@ -307,13 +542,4 @@ void backpropagate(struct neural_net *nn,
               batch_size,
               eta);
   // -----------------------------------------------------------------
-}
-
-nn_type sigmoid(nn_type z) {
-  return 1.0 / (1.0 + exp(-z));
-}
-
-nn_type sigmoidPrime(nn_type z) {
-  nn_type exponential = exp(z);
-  return exponential / pow(exponential + 1, 2);
 }
