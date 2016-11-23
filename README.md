@@ -3,6 +3,8 @@
 ## General Information
 This project implements OCR with a Neural Network.
 
+You can find my project writeup [here](https://www.dropbox.com/s/wwxyf4n9zavz8xk/Neural_Network_Multicore_Project.pdf?dl=0).
+
 For a great introduction to neural nets, I highly suggest reading Michael Nielsen's online book
 _Neural Networks and Deep Learning_, which is available for free at: http://neuralnetworksanddeeplearning.com/  
 The general approach in this project was guided by this book.
