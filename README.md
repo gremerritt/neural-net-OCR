@@ -28,7 +28,7 @@ sysctl -n hw.ncpu
 
 If you oversubscribe the number of cores, the program will run but your results will not be good.
 
-Note that because this project uses OpenMP, **this project will NOT compile with clang**. It will compile on OSX assuming you are using a true version of `gcc` (or some other OpenMP compatible compiler).
+Note that because this project uses OpenMP, **this project will NOT compile with clang**. It will compile on OSX assuming you are using a true version of `gcc` (or some other OpenMP compatible compiler). You will need to update the `CC` (compiler) in the `Makefile` to match the name of the compiler you are using.
 
 Then in the project directory simply run
 
