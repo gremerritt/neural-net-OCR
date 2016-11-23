@@ -17,10 +17,10 @@
 #define NUM_HIDDEN_LAYERS 2
 #define LEARNING_RATE 1.5
 #define BATCH_SIZE 5
-#define EPOCHS 25
+#define EPOCHS 5
 #define TRAINING_SAMPLES 60000
 #define TEST_SAMPLES 10000
-#define TRAINING_PRINT_RESULTS_EVERY 60000
+#define TRAINING_PRINT_RESULTS_EVERY 10000
 #define TEST_PRINT_RESULTS_EVERY 10000
 #define OMP_NUM_THREADS_TRAINING 4
 
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
 															     testing_times[epoch]);
 	}
 
-	// destroy_nn(&nn);
+	destroy_nns(&neural_nets, OMP_NUM_THREADS_TRAINING+1);
 	free(training_data);
 	free(test_data);
 

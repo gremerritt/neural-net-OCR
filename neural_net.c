@@ -197,6 +197,13 @@ void sync_nn(struct neural_net *target_nn, struct neural_net *source_nn)
     (*target_nn).weight[number_of_hidden_layers][i] = (*source_nn).weight[number_of_hidden_layers][i];
 }
 
+void destroy_nns(struct neural_net *nns, int num)
+{
+  int i;
+  for (i=0; i<num; i++)
+    destroy_nn(&(nns[i]));
+}
+
 void destroy_nn(struct neural_net *nn)
 {
   int i;

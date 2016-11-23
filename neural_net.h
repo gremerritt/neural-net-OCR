@@ -53,6 +53,7 @@ struct change_matrices {
 
 void duplicate_nn(struct neural_net *new_nn, struct neural_net *nn);
 void sync_nn(struct neural_net *target_nn, struct neural_net *source_nn);
+void destroy_nns(struct neural_net *nns, int num);
 void destroy_nn(struct neural_net *nn);
 
 void initialize_change_matrices(struct change_matrices *cm, struct neural_net *nn);
