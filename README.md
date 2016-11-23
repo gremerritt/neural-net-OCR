@@ -1,7 +1,7 @@
 # neural-net-OCR
 
 ## General Information
-This project implements OCR with a neural net.
+This project implements OCR with a Neural Network.
 
 For a great introduction to neural nets, I highly suggest reading Michael Nielsen's online book
 _Neural Networks and Deep Learning_, which is available for free at: http://neuralnetworksanddeeplearning.com/  
@@ -30,6 +30,36 @@ If you oversubscribe the number of cores, the program will run but your results 
 
 Note that because this project uses OpenMP, **this project will NOT compile with clang**. It will compile on OSX assuming you are using a true version of `gcc` (or some other OpenMP compatible compiler).
 
+Then in the project directory simply run
+
+    $ make
+
+to compile to project.
+
+## Running
+
+First, download the 4 MNIST training and testing data sets from [the MNIST website](http://yann.lecun.com/exdb/mnist/). Make sure they are in this project directory.
+
+By default the Neural Net will run with the following configuration
+
+    Total Layers:           4
+    Hidden Layers:          2
+    Inputs:                 784
+    Outputs:                10
+    Nodes in Hidden Layers: 60
+    Batch Size:             5
+    Learning Rate:          1.500000
+
+The number of hidden layers, nodes in the hidden layers, batch size, and learning rate are all configurable on the command line.
+
+    --hidden-layers=4 [or --hl=4]
+    --hidden-nodes=100 [or --hn=100]
+    --batch-size=10 [or --bs=10]
+    --learning-rate=1.2 [or --lr=1.2]
+
+To run the program in the project directory:
+
+    $ ./main [options]
+
 ## Parallelism
-This neural net uses training example parallelism (exemplar parallelism) to optimize performance.
-Parallelism is implemented with OpenMP.
+This neural net uses training example parallelism (exemplar parallelism) to optimize performance. Parallelism is implemented with OpenMP.
